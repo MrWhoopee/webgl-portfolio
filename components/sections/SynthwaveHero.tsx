@@ -113,15 +113,17 @@ export default function SynthwaveHero() {
             <span style={neon('#ff007f')}>React Three Fiber</span>.
           </p>
 
-          <div
-            className="mt-12 flex items-center gap-3 text-sm text-slate-500"
-            style={{ fontFamily: 'Space Mono, monospace' }}
-          >
-            <span>scroll to explore</span>
-            <span className="block h-px w-12" style={{ background: '#00f3ff' }} />
-            <span style={glow('#00f3ff')}>↓</span>
-          </div>
         </div>
+      </div>
+
+      {/* Scroll hint — centered along the bottom of the hero, neon-lit */}
+      <div
+        className="pointer-events-none absolute bottom-24 left-1/2 z-10 flex -translate-x-1/2 items-center gap-3 whitespace-nowrap text-base md:bottom-10"
+        style={{ fontFamily: 'Space Mono, monospace', ...glow('#00f3ff') }}
+      >
+        <span>scroll to explore</span>
+        <span className="block h-px w-16" style={{ background: '#00f3ff', boxShadow: '0 0 8px #00f3ffcc' }} />
+        <span>↓</span>
       </div>
     </section>
   )

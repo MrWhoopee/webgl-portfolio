@@ -11,6 +11,7 @@ import { audioState } from '@/lib/audio'
 // the time we punch through it (≈0.53), so the city greets us already playing.
 const FADE_START = 0.42
 const FADE_END   = 0.52
+const SEG = 14   // volume column resolution (segments that cascade in on open)
 
 export default function AudioManager() {
   const synthRef = useRef<HTMLAudioElement>(null)
@@ -26,6 +27,11 @@ export default function AudioManager() {
   const [playing, setPlaying] = useState(false)
   const [volume, setVolume] = useState(0.25)
   const [track, setTrack] = useState<'synthwave' | 'cyber-city'>('synthwave')
+  const [volOpen, setVolOpen] = useState(false)
+
+  const groupRef = useRef<HTMLDivElement>(null)
+  const colRef = useRef<HTMLDivElement>(null)
+  const draggingRef = useRef(false)
 
   const build = () => {
     if (built.current) return
@@ -118,7 +124,23 @@ export default function AudioManager() {
     }
   }
 
-  const onVolume = (e: React.ChangeEvent<HTMLInputElement>) => setVolume(parseFloat(e.target.value))
+  // Volume from the vertical column: top = 1, bottom = 0.
+  const setFromPointer = (clientY: number) => {
+    const el = colRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    setVolume(Math.min(1, Math.max(0, 1 - (clientY - r.top) / r.height)))
+  }
+
+  // Close the popup when a pointer lands outside the volume group.
+  useEffect(() => {
+    if (!volOpen) return
+    const onDown = (e: PointerEvent) => {
+      if (groupRef.current && !groupRef.current.contains(e.target as Node)) setVolOpen(false)
+    }
+    document.addEventListener('pointerdown', onDown)
+    return () => document.removeEventListener('pointerdown', onDown)
+  }, [volOpen])
 
   return (
     <>
@@ -126,9 +148,10 @@ export default function AudioManager() {
       <audio ref={cyberRef} src="/audio/cyber-city.mp3" loop preload="auto" />
 
       <div
-        className="pointer-events-auto fixed bottom-8 right-8 z-50 flex items-center gap-4 rounded-none border px-4 py-2.5 backdrop-blur-md"
+        className="pointer-events-auto fixed bottom-8 right-8 z-50 flex flex-col items-center gap-2 rounded-none border p-2.5 backdrop-blur-md md:px-4 md:py-2.5"
         style={{ borderColor: '#ff007f66', background: 'rgba(10,3,18,0.55)', boxShadow: '0 0 22px #ff007f33' }}
       >
+        <div className="flex items-center gap-0.5">
         <button
           onClick={toggle}
           aria-label={playing ? 'Pause music' : 'Play music'}
@@ -152,28 +175,71 @@ export default function AudioManager() {
           )}
         </button>
 
-        <div className="flex flex-col gap-1">
-          <span
-            className="text-[0.6rem] uppercase tracking-[0.2em]"
-            style={{ fontFamily: 'Space Mono, monospace', color: track === 'cyber-city' ? '#00f3ff' : '#ff7fc3' }}
-          >
-            {track}
-          </span>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            value={volume}
-            onChange={onVolume}
+        {/* Volume — a twin button right of play; the column pops up above it,
+            its segments cascading in like a terminal load. */}
+        <div ref={groupRef} className="relative">
+          <button
+            onClick={() => setVolOpen((v) => !v)}
             aria-label="Volume"
-            className="h-1 w-24 cursor-pointer appearance-none rounded-none"
-            style={{
-              accentColor: '#ff007f',
-              background: `linear-gradient(90deg, #ff007f ${volume * 100}%, #3a1a4d ${volume * 100}%)`,
-            }}
-          />
+            aria-expanded={volOpen}
+            className="flex h-9 w-9 items-center justify-center rounded-none transition-transform hover:scale-110"
+            style={{ background: 'rgba(255,0,127,0.12)', boxShadow: '0 0 12px #ff007f55' }}
+          >
+            <span className="flex items-end gap-[2px]">
+              <span className="block w-[3px] rounded-sm" style={{ height: 6,  background: '#ff007f' }} />
+              <span className="block w-[3px] rounded-sm" style={{ height: 10, background: '#ff007f' }} />
+              <span className="block w-[3px] rounded-sm" style={{ height: 14, background: '#ff007f' }} />
+            </span>
+          </button>
+
+          {volOpen && (
+            <div
+              className="vol-pop absolute bottom-full left-1/2 mb-3 flex w-9 -translate-x-1/2 flex-col items-center gap-1.5 rounded-none border py-2.5 backdrop-blur-md"
+              style={{ borderColor: '#ff007f66', background: 'rgba(10,3,18,0.85)', boxShadow: '0 0 22px #ff007f44' }}
+            >
+              <span
+                className="font-mono text-[0.5rem] tabular-nums tracking-[0.05em]"
+                style={{ color: '#ff7fc3' }}
+              >
+                {Math.round(volume * 100).toString().padStart(2, '0')}%
+              </span>
+
+              <div
+                ref={colRef}
+                onPointerDown={(e) => { draggingRef.current = true; e.currentTarget.setPointerCapture(e.pointerId); setFromPointer(e.clientY) }}
+                onPointerMove={(e) => { if (draggingRef.current) setFromPointer(e.clientY) }}
+                onPointerUp={() => { draggingRef.current = false }}
+                onPointerCancel={() => { draggingRef.current = false }}
+                className="flex w-full cursor-pointer flex-col-reverse gap-[3px] px-1.5 py-1"
+                style={{ touchAction: 'none' }}
+              >
+                {Array.from({ length: SEG }).map((_, i) => {
+                  const lit = i < Math.round(volume * SEG)
+                  return (
+                    <span
+                      key={i}
+                      className="vol-seg block h-[5px] w-full rounded-sm"
+                      style={{
+                        background: lit ? '#ff007f' : 'rgba(255,0,127,0.15)',
+                        boxShadow: lit ? '0 0 8px #ff007fcc' : 'none',
+                        animationDelay: `${i * 35}ms`,
+                      }}
+                    />
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
+        </div>
+
+        {/* Track name under the buttons */}
+        <span
+          className="font-mono text-[0.55rem] uppercase tracking-[0.25em]"
+          style={{ color: track === 'cyber-city' ? '#00f3ff' : '#ff7fc3' }}
+        >
+          {track}
+        </span>
       </div>
     </>
   )

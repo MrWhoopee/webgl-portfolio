@@ -59,7 +59,7 @@ export default function ContactSection() {
       </div>
 
       <p
-        className="absolute bottom-8 text-xs text-slate-600"
+        className="absolute bottom-8 max-w-[60%] text-xs text-slate-600 md:max-w-none"
         style={{ fontFamily: "Space Mono, monospace" }}
       >
         © 2026 Artemii. Built with Next.js & WebGL.
