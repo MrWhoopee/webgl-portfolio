@@ -282,27 +282,6 @@ export default function NeutronCore() {
         <shaderMaterial ref={coreMat} vertexShader={coreVert} fragmentShader={coreFrag} uniforms={coreUniforms} />
       </mesh>
 
-      {/* Flawless glass shell hugging the core — refracts the plasma within.
-          Transmission triggers a full extra scene render each frame, so it's
-          desktop-only; phones get the bare plasma + corona, which still reads. */}
-      {!LOW && (
-        <mesh frustumCulled={false}>
-          <sphereGeometry args={[RADIUS * 1.4, 64, 64]} />
-          <meshPhysicalMaterial
-            transmission={1}
-            thickness={5}
-            roughness={0.03}
-            ior={1.45}
-            metalness={0}
-            clearcoat={1}
-            clearcoatRoughness={0.05}
-            color="#cfeaff"
-            transparent
-            fog={false}
-          />
-        </mesh>
-      )}
-
       <mesh geometry={coronaGeo} frustumCulled={false}>
         <shaderMaterial
           ref={coronaMat}

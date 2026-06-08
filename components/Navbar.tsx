@@ -111,6 +111,7 @@ export default function Navbar() {
         <div
           className="w-full px-10 py-1 text-xs"
           style={{
+            paddingLeft: '3px',
             fontFamily: 'Space Mono, monospace',
             color: '#7C3AED',
             background: 'rgba(8,0,16,0.7)',
@@ -124,7 +125,7 @@ export default function Navbar() {
       {/* Nav bar */}
       <div
         className="relative flex items-center px-10 md:px-20 py-5"
-        style={{ background: 'rgba(8,0,16,0.50)', backdropFilter: 'blur(14px)' }}
+        style={{ paddingLeft: '3px', background: 'rgba(8,0,16,0.50)', backdropFilter: 'blur(14px)' }}
       >
         {/* Logo */}
         <div style={{ width: '60px' }}>

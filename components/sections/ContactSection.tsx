@@ -14,7 +14,7 @@ export default function ContactSection() {
     >
       <div
         className="max-w-2xl p-[42px] md:p-[50px]"
-        style={{ background: "rgba(8,2,20,0.55)", backdropFilter: "blur(3px)", WebkitBackdropFilter: "blur(3px)" }}
+        style={{ padding: "3px", background: "rgba(8,2,20,0.55)", backdropFilter: "blur(3px)", WebkitBackdropFilter: "blur(3px)" }}
       >
         <p
           className="text-xs tracking-[0.3em] uppercase mb-6"

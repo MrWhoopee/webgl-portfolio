@@ -72,7 +72,7 @@ export default function SynthwaveHero() {
       </div>
 
       {/* HTML hero overlay */}
-      <div className="pointer-events-none relative z-10 flex h-full flex-col justify-center px-10 md:px-24">
+      <div className="pointer-events-none relative z-10 flex h-full flex-col justify-center px-10 md:px-24" style={{ paddingLeft: '3px' }}>
         <div className="max-w-3xl">
           <p className="mb-4 text-sm uppercase tracking-[0.3em]">
             <span style={neon('#ff007f')}>Full-Stack Developer</span>
