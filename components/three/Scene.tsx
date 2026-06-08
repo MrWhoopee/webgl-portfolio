@@ -7,13 +7,15 @@ import SectionPlanes from './SectionPlanes'
 import CyberCity from './CyberCity'
 import NeutronCore from './NeutronCore'
 import CameraRig from './CameraRig'
+import { LOW, DPR } from '@/lib/quality'
 
 export default function Scene() {
   return (
     <div className="fixed inset-0 -z-10">
       <Canvas
         camera={{ position: [0, 18, 35], fov: 65, near: 0.1, far: 900 }}
-        gl={{ antialias: true }}
+        gl={{ antialias: !LOW, powerPreference: 'high-performance' }}
+        dpr={DPR}
         style={{ background: '#060112' }}
       >
         {/* Only fog-enabled materials (the GLB city) breathe this haze; the
@@ -29,11 +31,19 @@ export default function Scene() {
 
         <CameraRig />
 
-        <EffectComposer>
-          <Bloom intensity={1.7} luminanceThreshold={0.05} luminanceSmoothing={0.9} mipmapBlur />
-          <ChromaticAberration blendFunction={BlendFunction.NORMAL} offset={new Vector2(0.0012, 0.0012)} />
-          <Vignette offset={0.38} darkness={0.80} />
-        </EffectComposer>
+        {/* Postprocessing scaled to the device: phones keep just bloom (the
+            scene's signature glow), desktops add chromatic aberration + vignette. */}
+        {LOW ? (
+          <EffectComposer multisampling={0}>
+            <Bloom intensity={1.2} luminanceThreshold={0.05} luminanceSmoothing={0.9} mipmapBlur />
+          </EffectComposer>
+        ) : (
+          <EffectComposer multisampling={4}>
+            <Bloom intensity={1.7} luminanceThreshold={0.05} luminanceSmoothing={0.9} mipmapBlur />
+            <ChromaticAberration blendFunction={BlendFunction.NORMAL} offset={new Vector2(0.0012, 0.0012)} />
+            <Vignette offset={0.38} darkness={0.80} />
+          </EffectComposer>
+        )}
       </Canvas>
     </div>
   )

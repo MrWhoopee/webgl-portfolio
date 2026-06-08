@@ -1,11 +1,13 @@
 'use client'
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import InfiniteHighway from '@/components/three/InfiniteHighway'
 import HoverParticles from '@/components/three/HoverParticles'
 import HeroSun from '@/components/three/HeroSun'
+import { onScroll } from '@/lib/scroll'
+import { LOW, DPR } from '@/lib/quality'
 
 const glow = (c: string) => ({ color: c, textShadow: `0 0 8px ${c}cc, 0 0 22px ${c}66` })
 
@@ -35,15 +37,21 @@ function CameraParallax() {
 }
 
 export default function SynthwaveHero() {
+  // Freeze the hero's WebGL loop once it scrolls out of view — no point running a
+  // second bloom pipeline + highway + particles behind the city / core scenes.
+  const [active, setActive] = useState(true)
+  useEffect(() => onScroll((p) => setActive(p < 0.28)), [])
+
   return (
     <section className="relative h-screen w-full overflow-hidden">
       {/* 3D background — audio is owned by AudioManager and shared via audioState */}
       <div className="absolute inset-0">
         <Canvas
+          frameloop={active ? 'always' : 'never'}
           camera={{ position: [0, 4, 14], fov: 55, near: 0.1, far: 200 }}
-          gl={{ antialias: true, powerPreference: 'high-performance' }}
+          gl={{ antialias: !LOW, powerPreference: 'high-performance' }}
           style={{ background: '#060112' }}
-          dpr={[1, 2]}
+          dpr={DPR}
         >
           <fog attach="fog" args={['#060112', 16, 52]} />
           <HeroSun />

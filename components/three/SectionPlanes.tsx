@@ -4,6 +4,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { scrollState } from '@/lib/scroll'
 import { audioState } from '@/lib/audio'
+import { LOW } from '@/lib/quality'
 import { TILT, UPPER_Y, LOWER_Y, PLANE_Z, CITY_HOLES } from '@/lib/cityLayout'
 
 const NHOLES = CITY_HOLES.length   // one tear per hero tower, punched to match it
@@ -172,6 +173,7 @@ const UPPER_POS = [0, UPPER_Y, PLANE_Z] as const   // raised — its top reads a
 const LOWER_POS = [0, LOWER_Y, PLANE_Z] as const   // 5× the old gap below the upper plane
 
 export default function SectionPlanes() {
+  const root     = useRef<THREE.Group>(null)
   const upperMat = useRef<THREE.ShaderMaterial>(null)
   const lowerMat = useRef<THREE.ShaderMaterial>(null)
   const smoothOp = useRef(0)
@@ -182,11 +184,14 @@ export default function SectionPlanes() {
     () => CITY_HOLES.map(([x, z, r]) => new THREE.Vector3(x, z, r)), [])
 
   // Wide planes so the corridor reads broad and the city spreads beneath it.
+  // Subdivision halved on low-power devices — the displacement still reads fine.
   const upperGeo = useMemo(() => {
-    const g = new THREE.PlaneGeometry(440, 760, 150, 150); g.rotateX(-Math.PI / 2); return g
+    const s = LOW ? 90 : 150
+    const g = new THREE.PlaneGeometry(440, 760, s, s); g.rotateX(-Math.PI / 2); return g
   }, [])
   const lowerGeo = useMemo(() => {
-    const g = new THREE.PlaneGeometry(440, 760, 170, 170); g.rotateX(-Math.PI / 2); return g
+    const s = LOW ? 100 : 170
+    const g = new THREE.PlaneGeometry(440, 760, s, s); g.rotateX(-Math.PI / 2); return g
   }, [])
 
   const freq = useMemo(() => new Uint8Array(64), [])
@@ -218,6 +223,10 @@ export default function SectionPlanes() {
     smoothOp.current += (op - smoothOp.current) * 0.055
     const o = smoothOp.current
 
+    // Skip both torn planes when they're off screen (hero above / city below).
+    if (root.current) root.current.visible = o > 0.004
+    if (o <= 0.004) return
+
     const an = audioState.analyser
     const playing = audioState.playing && !!an
     let level = 0
@@ -240,7 +249,7 @@ export default function SectionPlanes() {
   })
 
   return (
-    <>
+    <group ref={root} visible={false}>
       {/* Upper plane — keeps its own tilted transform */}
       <mesh geometry={upperGeo} position={UPPER_POS} rotation={[TILT, 0, 0]} frustumCulled={false}>
         <shaderMaterial
@@ -265,6 +274,6 @@ export default function SectionPlanes() {
           />
         </mesh>
       </group>
-    </>
+    </group>
   )
 }

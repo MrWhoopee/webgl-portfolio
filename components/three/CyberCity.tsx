@@ -508,6 +508,7 @@ function GroundFog() {
 
 /* ── Головна сцена міста ── */
 export default function CyberCity() {
+  const root = useRef<THREE.Group>(null);
   const gMat = useRef<THREE.ShaderMaterial>(null);
   const lights = useRef<THREE.Group>(null);
   const smooth = useRef(0);
@@ -525,6 +526,12 @@ export default function CyberCity() {
     const op = Math.min(1, Math.max(0, (p - 0.34) / 0.12));
     smooth.current += (op - smooth.current) * 0.06;
     const o = smooth.current;
+
+    // Don't render the whole city (instanced buildings, roads, fog, sky lanes)
+    // while it's off screen on the hero or deep in the core chamber.
+    const shown = o > 0.004 && p < 0.96;
+    if (root.current) root.current.visible = shown;
+    if (!shown) return;
 
     const an = audioState.analyser;
     const playing = audioState.playing && !!an;
@@ -553,7 +560,7 @@ export default function CyberCity() {
   });
 
   return (
-    <group position={[0, CITY_Y, CITY_Z]}>
+    <group ref={root} position={[0, CITY_Y, CITY_Z]} visible={false}>
       <group ref={lights}>
         <pointLight
           color="#00f3ff"

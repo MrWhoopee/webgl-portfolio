@@ -1,6 +1,6 @@
 'use client'
 import { ReactLenis, useLenis } from 'lenis/react'
-import { scrollState } from '@/lib/scroll'
+import { scrollState, emitScroll } from '@/lib/scroll'
 
 // Dev-only: react-three-fiber still instantiates THREE.Clock under the hood, so
 // three r0.184 logs its deprecation warning once per <Canvas>. Silence just that
@@ -23,6 +23,7 @@ function LenisSync() {
     scrollState.progress = progress
     scrollState.velocity = velocity
     scrollState.scrollY = scroll
+    emitScroll()
   })
   return null
 }

@@ -4,6 +4,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { scrollState } from '@/lib/scroll'
 import { audioState } from '@/lib/audio'
+import { LOW, FBM } from '@/lib/quality'
 import { CITY_Y, CITY_Z } from './CyberCity'
 
 /* A neon-blue star-core deep below the city, housed in a vast machine room of
@@ -18,6 +19,7 @@ const NCABLES = 64
    An HD blue sun: fine granulation, drifting sunspots, solar flares and a
    live equalizer that glitches the whole surface to the music.            */
 const noiseGlsl = /* glsl */`
+#define FBM ${FBM}
 float hash(vec3 p){ return fract(sin(dot(p, vec3(12.9898,78.233,37.719))) * 43758.5453); }
 float noise(vec3 p){
   vec3 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
@@ -26,7 +28,7 @@ float noise(vec3 p){
              mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),
                  mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);
 }
-float fbm(vec3 p){ float s=0.0, a=0.5; for(int i=0;i<5;i++){ s+=a*noise(p); p*=2.03; a*=0.5; } return s; }
+float fbm(vec3 p){ float s=0.0, a=0.5; for(int i=0;i<FBM;i++){ s+=a*noise(p); p*=2.03; a*=0.5; } return s; }
 `
 const coreVert = /* glsl */`
 uniform float uTime, uLevel, uAudio;
@@ -154,6 +156,7 @@ void main() {
 `
 
 export default function NeutronCore() {
+  const root      = useRef<THREE.Group>(null)
   const coreMat   = useRef<THREE.ShaderMaterial>(null)
   const coronaMat = useRef<THREE.ShaderMaterial>(null)
   const cableMat  = useRef<THREE.ShaderMaterial>(null)
@@ -171,7 +174,7 @@ export default function NeutronCore() {
     return tex
   }, [freq])
 
-  const coreGeo   = useMemo(() => new THREE.IcosahedronGeometry(RADIUS, 18), [])
+  const coreGeo   = useMemo(() => new THREE.IcosahedronGeometry(RADIUS, LOW ? 5 : 12), [])
   const coronaGeo = useMemo(() => new THREE.IcosahedronGeometry(RADIUS * 1.22, 3), [])
 
   const coreUniforms = useMemo(() => ({
@@ -224,6 +227,11 @@ export default function NeutronCore() {
     smooth.current += (op - smooth.current) * 0.06
     const o = smooth.current
 
+    // Skip the entire (very expensive) core — heavy shaders + glass transmission
+    // pass — whenever it isn't on screen. Saves all of it on the hero/city scroll.
+    if (root.current) root.current.visible = o > 0.004
+    if (o <= 0.004) return
+
     const an = audioState.analyser
     const playing = audioState.playing && !!an
     // soft on/off envelope so nothing snaps when music toggles
@@ -263,7 +271,7 @@ export default function NeutronCore() {
   })
 
   return (
-    <group position={[0, CORE_Y, CITY_Z]}>
+    <group ref={root} position={[0, CORE_Y, CITY_Z]} visible={false}>
       <group ref={lights}>
         <pointLight color="#1a6bff" position={[0, 0, 120]} distance={500} decay={1.3} intensity={0} />
         <pointLight color="#39b6ff" position={[140, 60, -40]} distance={500} decay={1.3} intensity={0} />
@@ -274,22 +282,26 @@ export default function NeutronCore() {
         <shaderMaterial ref={coreMat} vertexShader={coreVert} fragmentShader={coreFrag} uniforms={coreUniforms} />
       </mesh>
 
-      {/* Flawless glass shell hugging the core — refracts the plasma within. */}
-      <mesh frustumCulled={false}>
-        <sphereGeometry args={[RADIUS * 1.4, 128, 128]} />
-        <meshPhysicalMaterial
-          transmission={1}
-          thickness={5}
-          roughness={0.03}
-          ior={1.45}
-          metalness={0}
-          clearcoat={1}
-          clearcoatRoughness={0.05}
-          color="#cfeaff"
-          transparent
-          fog={false}
-        />
-      </mesh>
+      {/* Flawless glass shell hugging the core — refracts the plasma within.
+          Transmission triggers a full extra scene render each frame, so it's
+          desktop-only; phones get the bare plasma + corona, which still reads. */}
+      {!LOW && (
+        <mesh frustumCulled={false}>
+          <sphereGeometry args={[RADIUS * 1.4, 64, 64]} />
+          <meshPhysicalMaterial
+            transmission={1}
+            thickness={5}
+            roughness={0.03}
+            ior={1.45}
+            metalness={0}
+            clearcoat={1}
+            clearcoatRoughness={0.05}
+            color="#cfeaff"
+            transparent
+            fog={false}
+          />
+        </mesh>
+      )}
 
       <mesh geometry={coronaGeo} frustumCulled={false}>
         <shaderMaterial
