@@ -96,7 +96,6 @@ varying vec2  vGrid;
 varying float vHeight;
 varying float vFog;
 varying float vTear;
-varying float vGlitch;
 
 float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 
@@ -111,14 +110,12 @@ void main() {
 
   vec2  id  = floor(pos.xz * 0.5);
   float rnd = hash(id);
-  // sparse toxic cells, drifting slowly (no harsh flicker)
-  vGlitch = step(0.86, hash(id + floor(uTime * 2.5)));
 
-  float samp = 0.0;
   if (uAudio > 0.5) {
     float band = fract(pos.x * 0.011 + pos.z * 0.017);
-    samp = texture2D(uSpectrum, vec2(band, 0.5)).r;
+    float samp = texture2D(uSpectrum, vec2(band, 0.5)).r;
     w *= 1.0 + uLevel * 0.8 + samp * 0.8;
+    w += step(0.62, fract(rnd * 7.0 + uTime * 9.0)) * (0.4 + samp * 1.6) * rnd;
   }
 
   float tear = 0.0;
@@ -133,21 +130,7 @@ void main() {
   w += lift * (2.5 + 2.0 * sin(uTime * 3.0 + rnd * 6.28)); // rim shards levitate
 
   pos.y  += w;
-  vHeight = pos.y;          // colour height is captured here — the glitch spikes
-                           // below raise the geometry but never brighten the grid
-
-  // Lower plane is far more unstable than the upper one: a restless churn always,
-  // and sharp random vertical glitch shards that spike hard on the beat.
-  float chaos = sin(pos.x * 1.7 + pos.z * 1.1 + uTime * 2.6) * 0.5
-              + sin(pos.x * 0.9 - pos.z * 1.3 + uTime * 3.7) * 0.35;
-  chaos += sin(pos.x * 3.3 + uTime * 5.5) * sin(pos.z * 2.9 - uTime * 4.3) * 0.45; // finer restless ripple
-  float g1 = step(0.80, fract(rnd * 17.0 + uTime * 7.0));   // frequent sharp pops
-  float g2 = step(0.93, fract(rnd * 41.0 - uTime * 13.0));  // rare tall spikes
-  chaos += g1 * (0.4 + samp * 3.0) * rnd
-         + g2 * (0.6 + samp * 5.0);                         // tall glitch shards even when silent
-  // mobile: keep the surface calm — minimal oscillation so it doesn't spike high
-  // (string literals so the GLSL float keeps its .0 — a bare 1 would be an int and fail to compile)
-  pos.y += chaos * ${LOW ? '0.1' : '1.0'};
+  vHeight = pos.y;
 
   float farFade  = clamp((-pos.z - 170.0) / 40.0, 0.0, 1.0);
   float nearFade = clamp((pos.z - 170.0) / 40.0, 0.0, 1.0);
@@ -165,35 +148,23 @@ varying vec2  vGrid;
 varying float vHeight;
 varying float vFog;
 varying float vTear;
-varying float vGlitch;
 ${gridGlsl}
 void main() {
   if (vTear > 0.80) discard;                 // the punched-through gap
 
-  // chromatic-split grid lines — an unstable, mis-registered digital surface
   float line = gridLine(vGrid, 0.5);
-  float lr   = gridLine(vGrid + vec2(0.8, 0.0), 0.5);   // red ghost
-  float lb   = gridLine(vGrid - vec2(0.8, 0.0), 0.5);   // blue ghost
   float rim  = smoothstep(0.50, 0.80, vTear);
-  float vis  = max(max(line, lr), max(lb, rim));
-  if (vis < 0.02) discard;
+  if (line < 0.02 && rim < 0.02) discard;
 
   float t = clamp(vHeight / 6.0, 0.0, 1.0);
-  vec3 grid = mix(vec3(1.0, 0.10, 0.80), vec3(1.0, 0.30, 0.55), t);
-  vec3 col  = grid * line + vec3(1.0, 0.10, 0.55) * (0.6 + t * 1.6) * line;
-  col.r += lr * 0.7;                          // chromatic ghosting
-  col.b += lb * 0.8;
+  vec3 col = mix(vec3(1.0, 0.10, 0.80), vec3(1.0, 0.30, 0.55), t);
+  col += vec3(1.0, 0.10, 0.55) * (0.6 + t * 1.6);
 
-  // toxic neon — acid-green glitch patches drifting across the surface
-  vec3 toxic = vec3(0.40, 1.0, 0.12);
-  col = mix(col, toxic, vGlitch * (0.3 + line) * 0.55);
+  col = mix(col, vec3(1.0), rim);
+  col += vec3(1.0) * rim * (0.6 + uLevel * 1.2);
 
-  vec3 rimCol = vec3(0.20, 0.62, 1.0);       // blue tear rim
-  col = mix(col, rimCol, rim);
-  col += rimCol * rim * (0.6 + uLevel * 1.2);
-
-  col *= 0.5;                                 // keep it dim — instability, not glare
-  float alpha = uOpacity * vis * (1.0 - vFog);
+  col *= 0.55;                                // tone down — was searing the eyes
+  float alpha = uOpacity * max(line, rim) * (1.0 - vFog);
   gl_FragColor = vec4(col, alpha);
 }
 `
@@ -223,8 +194,8 @@ export default function SectionPlanes() {
     const g = new THREE.PlaneGeometry(440, 760, s, s); g.rotateX(-Math.PI / 2); return g
   }, [])
   const lowerGeo = useMemo(() => {
-    // Each vertex runs the NHOLES tear loop + chaos churn, so subdivision is the
-    // dominant vertex cost — 140 still reads sharp, ~32% lighter than 170.
+    // Each vertex runs the NHOLES tear loop, so subdivision is the dominant
+    // vertex cost — 140 still reads sharp, ~32% lighter than 170.
     const s = LOW ? 90 : 140
     const g = new THREE.PlaneGeometry(440, 760, s, s); g.rotateX(-Math.PI / 2); return g
   }, [])
@@ -254,9 +225,9 @@ export default function SectionPlanes() {
   const shardGeo  = useMemo(() => new THREE.TetrahedronGeometry(1, 0), [])
   const shardDummy = useMemo(() => new THREE.Object3D(), [])
   const shardData = useMemo(() => {
-    const per = LOW ? 4 : 8
+    if (LOW) return []   // weak GPUs skip the levitating shards entirely
     return CITY_HOLES.flatMap(([hx, hz, r]) =>
-      Array.from({ length: per }, () => {
+      Array.from({ length: 8 }, () => {
         const a = Math.random() * Math.PI * 2
         const rr = Math.sqrt(Math.random()) * r * 0.7
         return {
@@ -350,17 +321,19 @@ export default function SectionPlanes() {
           />
         </mesh>
 
-        {/* Levitating polygon shards rising from each tear */}
-        <instancedMesh ref={shards} args={[shardGeo, undefined, shardData.length]} frustumCulled={false}>
-          <meshBasicMaterial
-            ref={shardMat}
-            color="#3aa6ff"
-            transparent opacity={0}
-            depthWrite={false}
-            blending={THREE.AdditiveBlending}
-            toneMapped={false}
-          />
-        </instancedMesh>
+        {/* Levitating polygon shards rising from each tear — desktop only */}
+        {!LOW && (
+          <instancedMesh ref={shards} args={[shardGeo, undefined, shardData.length]} frustumCulled={false}>
+            <meshBasicMaterial
+              ref={shardMat}
+              color="#3aa6ff"
+              transparent opacity={0}
+              depthWrite={false}
+              blending={THREE.AdditiveBlending}
+              toneMapped={false}
+            />
+          </instancedMesh>
+        )}
       </group>
     </group>
   )
