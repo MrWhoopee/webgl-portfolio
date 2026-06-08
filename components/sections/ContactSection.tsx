@@ -62,7 +62,7 @@ export default function ContactSection() {
         className="absolute bottom-8 text-xs text-slate-600"
         style={{ fontFamily: "Space Mono, monospace" }}
       >
-        © 2025 Artemii. Built with Next.js & WebGL.
+        © 2026 Artemii. Built with Next.js & WebGL.
       </p>
     </section>
   );

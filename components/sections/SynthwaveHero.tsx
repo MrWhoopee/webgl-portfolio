@@ -7,7 +7,8 @@ import InfiniteHighway from '@/components/three/InfiniteHighway'
 import HoverParticles from '@/components/three/HoverParticles'
 import HeroSun from '@/components/three/HeroSun'
 import { onScroll } from '@/lib/scroll'
-import { LOW, DPR, PHONE } from '@/lib/quality'
+import { LOW, DPR } from '@/lib/quality'
+import { useIsPhone } from '@/lib/useIsPhone'
 
 const glow = (c: string) => ({ color: c, textShadow: `0 0 8px ${c}cc, 0 0 22px ${c}66` })
 
@@ -22,15 +23,15 @@ const neon = (c: string): React.CSSProperties => ({
 })
 
 /* Camera parallax — mouse left tilts the view right, for premium 3D depth. */
-function CameraParallax() {
+function CameraParallax({ phone }: { phone: boolean }) {
   const { camera } = useThree()
   const look = useMemo(() => new THREE.Vector3(0, 0, -30), [])
 
   useFrame((state) => {
     // Phones have no cursor, so freeze the pointer-driven parallax (keeps the
     // framing, drops the pointless hover sway); tablets/desktop keep it.
-    const x = PHONE ? 0 : state.pointer.x                 // normalized -1..1
-    const y = PHONE ? 0 : state.pointer.y
+    const x = phone ? 0 : state.pointer.x                 // normalized -1..1
+    const y = phone ? 0 : state.pointer.y
     camera.position.x += (x * 2.0 - camera.position.x) * 0.04
     camera.position.y += (4 + y * 1.5 - camera.position.y) * 0.04
     look.set(-x * 4, 0.5 - y * 2, -30)
@@ -40,6 +41,7 @@ function CameraParallax() {
 }
 
 export default function SynthwaveHero() {
+  const isPhone = useIsPhone()
   // Freeze the hero's WebGL loop once it scrolls out of view — no point running a
   // second bloom pipeline + highway + particles behind the city / core scenes.
   const [active, setActive] = useState(true)
@@ -58,9 +60,9 @@ export default function SynthwaveHero() {
         >
           <fog attach="fog" args={['#060112', 16, 52]} />
           <HeroSun />
-          <InfiniteHighway glow="#ff007f" />
-          {!PHONE && <HoverParticles />}
-          <CameraParallax />
+          <InfiniteHighway glow="#ff007f" phone={isPhone} />
+          <HoverParticles phone={isPhone} />
+          <CameraParallax phone={isPhone} />
 
           <EffectComposer>
             <Bloom intensity={1.6} luminanceThreshold={0.15} luminanceSmoothing={0.9} mipmapBlur />
@@ -80,7 +82,11 @@ export default function SynthwaveHero() {
             className="mb-9 flex flex-wrap items-center gap-4 text-6xl font-bold leading-[1.12] tracking-tight text-white md:text-8xl"
             style={{ textShadow: '0 0 40px rgba(255,255,255,0.18)' }}
           >
-            Artemii<span className="cursor-blink" style={glow('#00f3ff')}>_</span>
+            {/* Name owns a full row on phones so the badge always drops to the
+                next line directly beneath it (one gap-4), inline on desktop. */}
+            <span className="basis-full md:basis-auto">
+              Artemii<span className="cursor-blink" style={glow('#00f3ff')}>_</span>
+            </span>
 
             {/* Terminal typewriter badge */}
             <span

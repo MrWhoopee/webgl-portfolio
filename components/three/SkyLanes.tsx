@@ -2,8 +2,8 @@
 import { useRef, useMemo, useLayoutEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { scrollState } from '@/lib/scroll'
 import { audioState } from '@/lib/audio'
+import { cityState } from '@/lib/cityState'
 import { CITY } from '@/lib/cityLayout'
 
 /* Elevated highways threading the skyline like flat roads. Each runs at a
@@ -139,7 +139,6 @@ function mulberry32(seed: number) {
 export default function SkyLanes() {
   const cars      = useRef<THREE.InstancedMesh>(null)
   const carMat    = useRef<THREE.MeshBasicMaterial>(null)
-  const smooth    = useRef(0)
   const gate      = useRef(0)
 
   // each lane owns its own uniforms so every ribbon animates (not just one)
@@ -171,15 +170,14 @@ export default function SkyLanes() {
 
   useFrame(({ clock }, dt) => {
     const t = clock.getElapsedTime()
-    const p = scrollState.progress
-    const op = Math.min(1, Math.max(0, (p - 0.2) / 0.12))
-    smooth.current += (op - smooth.current) * 0.06
-    const o = smooth.current
     const playing = audioState.playing && !!audioState.analyser
     gate.current += ((playing ? 1 : 0) - gate.current) * 0.04   // soft start/stop
+    // Sky lanes + traffic appear only once the towers have compiled AND music is
+    // playing — no music ⇒ bare buildings, no flying cars / lit highways.
+    const o = Math.min(1, Math.max(0, (cityState.build - 0.9) / 0.1)) * gate.current
 
     lanes.forEach((l) => { l.uniforms.uTime.value = t; l.uniforms.uOpacity.value = o })
-    if (carMat.current) carMat.current.opacity = o * gate.current
+    if (carMat.current) carMat.current.opacity = o
 
     if (cars.current) {
       const move = dt * gate.current

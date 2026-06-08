@@ -4,6 +4,11 @@ import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { audioState } from '@/lib/audio'
 
+// Phones have no cursor — pin the hover wave to a fixed spot on the right of the
+// viewport (mesh-local coords) so it never tracks taps over the page content.
+const PHONE_HOVER_X = 8
+const PHONE_HOVER_Y = -2
+
 /* ── Tunables ───────────────────────────────────────────────────────────── */
 const WIDTH   = 120    // plane span across the road (X)
 const HALF    = 160    // plane half-length along travel → length = 2*HALF
@@ -16,6 +21,7 @@ const LERP    = 0.12   // cursor follow damping
 type Props = {
   base?: string
   glow?: string
+  phone?: boolean
 }
 
 /*
@@ -196,6 +202,7 @@ const fragmentShader = /* glsl */ `
 export default function InfiniteHighway({
   base = '#2e1065',
   glow = '#ff007f',
+  phone = false,
 }: Props) {
   const meshRef = useRef<THREE.Mesh>(null)
   const matRef = useRef<THREE.ShaderMaterial>(null)
@@ -225,7 +232,7 @@ export default function InfiniteHighway({
     () => ({
       uScroll:   { value: 0 },
       uTime:     { value: 0 },
-      uMouse:    { value: new THREE.Vector2(9999, 9999) },
+      uMouse:    { value: new THREE.Vector2(phone ? PHONE_HOVER_X : 9999, phone ? PHONE_HOVER_Y : 9999) },
       uHoverR:   { value: HOVER_R },
       uAudio:    { value: 0 },
       uLevel:    { value: 0 },
@@ -245,7 +252,10 @@ export default function InfiniteHighway({
   const raycaster = useMemo(() => new THREE.Raycaster(), [])
   const ground    = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 2), []) // y = -2
   const hit       = useMemo(() => new THREE.Vector3(), [])
-  const target    = useMemo(() => new THREE.Vector2(9999, 9999), [])
+  const target    = useMemo(
+    () => new THREE.Vector2(phone ? PHONE_HOVER_X : 9999, phone ? PHONE_HOVER_Y : 9999),
+    []
+  )
 
   useFrame((state, delta) => {
     const m = matRef.current
@@ -269,11 +279,16 @@ export default function InfiniteHighway({
     const cur = m.uniforms.uLevel.value
     m.uniforms.uLevel.value = level > cur ? level : cur + (level - cur) * 0.18
 
-    // Project cursor onto the ground plane, convert to mesh-local
-    raycaster.setFromCamera(state.pointer, camera)
-    if (raycaster.ray.intersectPlane(ground, hit) && meshRef.current) {
-      meshRef.current.worldToLocal(hit)
-      target.set(hit.x, hit.y)
+    // Phone: pin the wave to the fixed right-side spot (ignore taps). Desktop/
+    // tablet: track the cursor. Toggles live when the viewport crosses the bp.
+    if (phone) {
+      target.set(PHONE_HOVER_X, PHONE_HOVER_Y)
+    } else {
+      raycaster.setFromCamera(state.pointer, camera)
+      if (raycaster.ray.intersectPlane(ground, hit) && meshRef.current) {
+        meshRef.current.worldToLocal(hit)
+        target.set(hit.x, hit.y)
+      }
     }
     const mouse = m.uniforms.uMouse.value
     mouse.x += (target.x - mouse.x) * LERP

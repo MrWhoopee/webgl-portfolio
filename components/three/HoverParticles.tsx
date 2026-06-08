@@ -4,6 +4,10 @@ import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { audioState } from '@/lib/audio'
 
+// World position of the phone's fixed hover wave (matches InfiniteHighway's
+// PHONE_HOVER on the right of the viewport) so streaks rise out of that wave.
+const PHONE_CURSOR = new THREE.Vector3(8, -2, -28)
+
 /* Neon light-blue streaks that spawn at the cursor, rise and fade away.
    Rendered as additive LineSegments — one short vertical segment per particle. */
 const POOL  = 160
@@ -25,7 +29,7 @@ const frag = /* glsl */ `
   void main() { gl_FragColor = vec4(uColor, vA); }
 `
 
-export default function HoverParticles() {
+export default function HoverParticles({ phone = false }: { phone?: boolean }) {
   const { camera } = useThree()
 
   const geo = useMemo(() => {
@@ -65,14 +69,19 @@ export default function HoverParticles() {
   const raycaster = useMemo(() => new THREE.Raycaster(), [])
   const ground    = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 2), []) // y = -2
   const hit       = useMemo(() => new THREE.Vector3(), [])
-  const cursor    = useRef(new THREE.Vector3(0, -2, -30))
+  const cursor    = useRef(phone ? PHONE_CURSOR.clone() : new THREE.Vector3(0, -2, -30))
   const carry     = useRef(0)
 
   useFrame((state, delta) => {
     const dt = Math.min(delta, 0.05)
 
-    raycaster.setFromCamera(state.pointer, camera)
-    if (raycaster.ray.intersectPlane(ground, hit)) cursor.current.copy(hit)
+    // Phone: stay pinned to the fixed wave spot (ignore taps); else track cursor.
+    if (phone) {
+      cursor.current.copy(PHONE_CURSOR)
+    } else {
+      raycaster.setFromCamera(state.pointer, camera)
+      if (raycaster.ray.intersectPlane(ground, hit)) cursor.current.copy(hit)
+    }
 
     const pos = geo.attributes.position.array as Float32Array
     const al  = geo.attributes.aAlpha.array as Float32Array

@@ -4,6 +4,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { scrollState } from '@/lib/scroll'
 import { audioState } from '@/lib/audio'
+import { cityState } from '@/lib/cityState'
 import { LOW, MOBILE } from '@/lib/quality'
 import { TILT, UPPER_Y, LOWER_Y, PLANE_Z, CITY_HOLES } from '@/lib/cityLayout'
 
@@ -90,6 +91,7 @@ const lowerVert = /* glsl */`
 uniform float uTime;
 uniform float uAudio;
 uniform float uLevel;
+uniform float uTear;               // 0 → solid grid, 1 → towers punched through
 uniform sampler2D uSpectrum;
 uniform vec3  uHoles[${NHOLES}];   // xy = center (local), z = radius
 varying vec2  vGrid;
@@ -123,6 +125,7 @@ void main() {
     float d = distance(pos.xz, uHoles[i].xy);
     tear = max(tear, 1.0 - smoothstep(0.0, uHoles[i].z, d));
   }
+  tear *= uTear;                 // gated: no holes until the city has compiled
   vTear = tear;
 
   float lift = smoothstep(0.30, 0.95, tear);
@@ -216,7 +219,7 @@ export default function SectionPlanes() {
 
   const lowerUniforms = useMemo(() => ({
     uTime: { value: 0 }, uOpacity: { value: 0 }, uAudio: { value: 0 },
-    uLevel: { value: 0 }, uSpectrum: { value: spectrum }, uHoles: { value: holeVecs },
+    uLevel: { value: 0 }, uTear: { value: 0 }, uSpectrum: { value: spectrum }, uHoles: { value: holeVecs },
   }), [spectrum, holeVecs])
 
   // Levitating polygon shards (instanced tetrahedra) tumbling up out of each tear.
@@ -277,6 +280,11 @@ export default function SectionPlanes() {
       m.uniforms.uLevel.value   = level > cur ? level : cur + (level - cur) * 0.18
     }
 
+    // Tears + levitating shards open up at the moment the growing towers visually
+    // punch through the plane (mid-compile) — well before the final spires/cars.
+    const built = Math.min(1, Math.max(0, (cityState.build - 0.35) / 0.2))
+    if (lowerMat.current) lowerMat.current.uniforms.uTear.value = built
+
     if (shards.current) {
       for (let i = 0; i < shardData.length; i++) {
         const s = shardData[i]
@@ -292,7 +300,7 @@ export default function SectionPlanes() {
       }
       shards.current.instanceMatrix.needsUpdate = true
     }
-    if (shardMat.current) shardMat.current.opacity = o
+    if (shardMat.current) shardMat.current.opacity = o * built
   })
 
   return (

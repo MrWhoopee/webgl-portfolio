@@ -4,6 +4,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { scrollState } from "@/lib/scroll";
 import { audioState } from "@/lib/audio";
+import { cityState, BUILD_TRIGGER, BUILD_TIME } from "@/lib/cityState";
 import { CITY, CITY_Y, CITY_Z, HALF_X, HALF_Z } from "@/lib/cityLayout";
 import SkyLanes from "./SkyLanes";
 
@@ -46,19 +47,25 @@ const buildingVert = /* glsl */ `
 attribute vec3  aSize;
 attribute float aBand;
 attribute vec3  aTint;
+attribute float aDelay;     // per-building reveal stagger → matrix cascade
+uniform   float uReveal;    // 0..1 global materialization progress
 varying vec3  vLocal;
 varying vec3  vSize;
 varying vec3  vN;
 varying float vBand;
 varying vec3  vTint;
 varying float vFog;
-varying float vWorldY; 
+varying float vWorldY;
+varying float vReveal;      // this building's own 0..1 reveal front
 void main() {
   vLocal = position * aSize;
   vSize = aSize;
   vN = normal;
   vBand = aBand;
   vTint = aTint;
+  // Saturates to a full 1 well before uReveal reaches 1, so settled towers are
+  // never left with a clipped top (uReveal only asymptotes toward 1).
+  vReveal = clamp((uReveal * 1.7 - aDelay) / 0.6, 0.0, 1.0);
   
   vec4 worldPos = instanceMatrix * vec4(position, 1.0);
   vWorldY = worldPos.y; 
@@ -78,7 +85,13 @@ varying float vBand;
 varying vec3  vTint;
 varying float vFog;
 varying float vWorldY;
+varying float vReveal;
 void main() {
+  // Matrix materialization: each tower grows from its floor — anything above the
+  // reveal front isn't built yet, so it's cut away (the building assembles up).
+  float hN = clamp(vLocal.y / max(vSize.y, 0.001) + 0.5, 0.0, 1.0);
+  if (hN > vReveal) discard;
+
   float samp = texture2D(uSpectrum, vec2(vBand, 0.5)).r;
 
   vec3  L    = normalize(vec3(0.4, 0.85, 0.3));
@@ -120,6 +133,16 @@ void main() {
   float floorMerge = 1.0 - smoothstep(0.0, 12.0, vWorldY);
   col = mix(col, bg, floorMerge * 0.8);
 
+  // Green matrix code burns along the rising front, fading out once the tower is
+  // fully built — so it reads as "compiled from code", not popped into place.
+  float revFade  = 1.0 - smoothstep(0.85, 1.0, vReveal);
+  float revEdge  = exp(-(vReveal - hN) * 9.0);
+  float revCell  = floor(vLocal.x * 1.7) + floor(vLocal.z * 1.7);
+  float revGlyph = step(0.5, fract(sin(revCell * 91.17 + floor(uTime * 16.0) * 0.61) * 43758.5453));
+  vec3  revCode  = vec3(0.25, 1.0, 0.4);
+  col = mix(col, revCode, revEdge * (0.35 + 0.65 * revGlyph) * revFade);
+  col += revCode * revEdge * revGlyph * 0.9 * revFade;
+
   col = mix(bg, col, uOpacity);
   gl_FragColor = vec4(col, 1.0);
 }
@@ -128,7 +151,6 @@ void main() {
 function Tiles() {
   const mesh = useRef<THREE.InstancedMesh>(null);
   const mat = useRef<THREE.ShaderMaterial>(null);
-  const smooth = useRef(0);
   const gate = useRef(0);
 
   const freq = useMemo(() => new Uint8Array(64), []);
@@ -160,6 +182,9 @@ function Tiles() {
       "aTint",
       new THREE.InstancedBufferAttribute(CITY.tiles.tint, 3),
     );
+    const delay = new Float32Array(CITY.tiles.count);
+    for (let i = 0; i < CITY.tiles.count; i++) delay[i] = Math.random() * 0.55;
+    g.setAttribute("aDelay", new THREE.InstancedBufferAttribute(delay, 1));
     return g;
   }, []);
 
@@ -169,6 +194,7 @@ function Tiles() {
       uOpacity: { value: 0 },
       uAudio: { value: 0 },
       uLevel: { value: 0 },
+      uReveal: { value: 0 },
       uSpectrum: { value: spectrum },
     }),
     [spectrum],
@@ -188,9 +214,7 @@ function Tiles() {
   }, []);
 
   useFrame(({ clock }) => {
-    const p = scrollState.progress;
-    const op = Math.min(1, Math.max(0, (p - 0.2) / 0.12));
-    smooth.current += (op - smooth.current) * 0.06;
+    const b = cityState.build;                       // shared compile progress
     const an = audioState.analyser;
     const playing = audioState.playing && !!an;
     gate.current += ((playing ? 1 : 0) - gate.current) * 0.05;
@@ -204,7 +228,9 @@ function Tiles() {
     }
     if (mat.current) {
       mat.current.uniforms.uTime.value = clock.getElapsedTime();
-      mat.current.uniforms.uOpacity.value = smooth.current;
+      // Colour fills in fast; the bottom-up reveal/discard does the materializing.
+      mat.current.uniforms.uOpacity.value = Math.min(1, b * 4);
+      mat.current.uniforms.uReveal.value = b;
       mat.current.uniforms.uAudio.value = gate.current;
       const cur = mat.current.uniforms.uLevel.value as number;
       const tgt = level * gate.current;
@@ -232,7 +258,6 @@ function Tiles() {
 function Antennas() {
   const mesh = useRef<THREE.InstancedMesh>(null);
   const mat = useRef<THREE.MeshBasicMaterial>(null);
-  const smooth = useRef(0);
   const gate = useRef(0);
 
   const geo = useMemo(() => new THREE.BoxGeometry(1, 1, 1), []);
@@ -256,13 +281,12 @@ function Antennas() {
   }, []);
 
   useFrame(() => {
-    const p = scrollState.progress;
-    const op = Math.min(1, Math.max(0, (p - 0.2) / 0.12));
-    smooth.current += (op - smooth.current) * 0.06;
-    // Spires only glow while the music plays — dark otherwise.
+    // Spires appear only once the towers have finished compiling AND the music is
+    // playing — no music ⇒ bare buildings, no spires.
+    const built = Math.min(1, Math.max(0, (cityState.build - 0.9) / 0.1));
     const playing = audioState.playing && !!audioState.analyser;
     gate.current += ((playing ? 1 : 0) - gate.current) * 0.05;
-    if (mat.current) mat.current.opacity = smooth.current * gate.current;
+    if (mat.current) mat.current.opacity = built * gate.current;
   });
 
   return (
@@ -326,7 +350,6 @@ function Roads() {
     () => ({ uTime: { value: 0 }, uOpacity: { value: 0 } }),
     [],
   );
-  const smooth = useRef(0);
   const roads = useMemo(
     () => [
       {
@@ -352,11 +375,8 @@ function Roads() {
   );
 
   useFrame(({ clock }) => {
-    const p = scrollState.progress;
-    const op = Math.min(1, Math.max(0, (p - 0.2) / 0.12));
-    smooth.current += (op - smooth.current) * 0.06;
     uniforms.uTime.value = clock.getElapsedTime();
-    uniforms.uOpacity.value = smooth.current;
+    uniforms.uOpacity.value = cityState.build;
   });
 
   return (
@@ -390,7 +410,6 @@ const FOG_LAYERS = 5;
 function GroundFog() {
   const mesh = useRef<THREE.InstancedMesh>(null);
   const mat = useRef<THREE.ShaderMaterial>(null);
-  const smooth = useRef(0);
 
   // Стабільні юніформи
   const uniforms = useMemo(
@@ -434,13 +453,9 @@ function GroundFog() {
   }, []);
 
   useFrame(({ clock }) => {
-    const p = scrollState.progress;
-    const op = Math.min(1, Math.max(0, (p - 0.2) / 0.12));
-    smooth.current += (op - smooth.current) * 0.06;
-
     if (mat.current) {
       mat.current.uniforms.uTime.value = clock.getElapsedTime();
-      mat.current.uniforms.uOpacity.value = smooth.current;
+      mat.current.uniforms.uOpacity.value = cityState.build;
     }
   });
 
@@ -497,7 +512,6 @@ export default function CyberCity() {
   const root = useRef<THREE.Group>(null);
   const gMat = useRef<THREE.ShaderMaterial>(null);
   const lights = useRef<THREE.Group>(null);
-  const smooth = useRef(0);
 
   const groundUniforms = useMemo(
     () => ({ uOpacity: { value: 0 }, uLevel: { value: 0 } }),
@@ -507,11 +521,19 @@ export default function CyberCity() {
   const gate = useRef(0);
   const lvl = useRef(0);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     const p = scrollState.progress;
-    const op = Math.min(1, Math.max(0, (p - 0.2) / 0.12));
-    smooth.current += (op - smooth.current) * 0.06;
-    const o = smooth.current;
+
+    // Drive the shared compile timeline: once we reach 01/about the towers
+    // "build" over ~BUILD_TIME seconds (the matrix phase), regardless of scroll
+    // speed; scrolling back above the trigger un-builds them. This is the single
+    // source of truth every city sub-scene reads.
+    const dir = p > BUILD_TRIGGER ? 1 : -1;
+    cityState.build = Math.min(
+      1,
+      Math.max(0, cityState.build + (dir * Math.min(delta, 0.05)) / BUILD_TIME),
+    );
+    const o = cityState.build;
 
     // Don't render the whole city (instanced buildings, roads, fog, sky lanes)
     // while it's off screen on the hero or deep in the core chamber.
