@@ -28,13 +28,21 @@ function camY(p: number) {
 export default function CameraRig() {
   const { camera, pointer } = useThree()
 
-  useFrame(() => {
-    const y = camY(scrollState.progress)
+  useFrame((state) => {
+    const p = scrollState.progress
+    const y = camY(p)
+
+    // Portrait screens have a narrow horizontal FOV, so the wide core sphere
+    // overflows the sides. Pull the camera back as we approach the core chamber
+    // (where nothing else is on screen) so the whole core fits the frame.
+    const portrait = state.size.height > state.size.width
+    const coreNear = Math.min(1, Math.max(0, (p - 0.82) / 0.18))
+    const pull = portrait ? 150 * coreNear : 0
 
     // Smooth X parallax only — no Y tilt (causes unwanted oscillation)
     camera.position.x += (pointer.x * 1.4 - camera.position.x) * 0.06
     camera.position.y = y
-    camera.position.z = 35
+    camera.position.z = 35 + pull
 
     camera.lookAt(pointer.x * 0.4, y - 9, -30)
   })

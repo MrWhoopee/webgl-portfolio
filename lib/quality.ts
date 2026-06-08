@@ -13,6 +13,14 @@ function detect(): boolean {
 // true → low-power device (mobile or weak desktop)
 export const LOW = detect()
 
+// true → handheld phone (not tablet/desktop). Android tablets omit "Mobile" and
+// iPads report as iPad/Mac, so this stays false for them — hover effects that
+// need a real cursor are kept on tablets, dropped on phones.
+export const PHONE =
+  typeof navigator !== 'undefined' &&
+  (/iPhone|iPod|Windows Phone/i.test(navigator.userAgent) ||
+    (/Android/i.test(navigator.userAgent) && /Mobile/i.test(navigator.userAgent)))
+
 // Render-resolution cap: phones lie about devicePixelRatio (2.5–3.5), which
 // quadruples fragment work for no visible gain.
 export const DPR: [number, number] = LOW ? [1, 1.5] : [1, 2]

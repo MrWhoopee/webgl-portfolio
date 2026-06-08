@@ -7,7 +7,7 @@ import InfiniteHighway from '@/components/three/InfiniteHighway'
 import HoverParticles from '@/components/three/HoverParticles'
 import HeroSun from '@/components/three/HeroSun'
 import { onScroll } from '@/lib/scroll'
-import { LOW, DPR } from '@/lib/quality'
+import { LOW, DPR, PHONE } from '@/lib/quality'
 
 const glow = (c: string) => ({ color: c, textShadow: `0 0 8px ${c}cc, 0 0 22px ${c}66` })
 
@@ -27,7 +27,10 @@ function CameraParallax() {
   const look = useMemo(() => new THREE.Vector3(0, 0, -30), [])
 
   useFrame((state) => {
-    const { x, y } = state.pointer                       // normalized -1..1
+    // Phones have no cursor, so freeze the pointer-driven parallax (keeps the
+    // framing, drops the pointless hover sway); tablets/desktop keep it.
+    const x = PHONE ? 0 : state.pointer.x                 // normalized -1..1
+    const y = PHONE ? 0 : state.pointer.y
     camera.position.x += (x * 2.0 - camera.position.x) * 0.04
     camera.position.y += (4 + y * 1.5 - camera.position.y) * 0.04
     look.set(-x * 4, 0.5 - y * 2, -30)
@@ -56,7 +59,7 @@ export default function SynthwaveHero() {
           <fog attach="fog" args={['#060112', 16, 52]} />
           <HeroSun />
           <InfiniteHighway glow="#ff007f" />
-          <HoverParticles />
+          {!PHONE && <HoverParticles />}
           <CameraParallax />
 
           <EffectComposer>
