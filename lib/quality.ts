@@ -23,7 +23,9 @@ export const PHONE =
 
 // Render-resolution cap: phones lie about devicePixelRatio (2.5–3.5), which
 // quadruples fragment work for no visible gain.
-export const DPR: [number, number] = LOW ? [1, 1.5] : [1, 2]
+// Retina MacBooks report 2, which quadruples bloom/fill work for little visible
+// gain under heavy postprocessing — cap it so the descent stays smooth.
+export const DPR: [number, number] = LOW ? [1, 1.25] : [1, 1.6]
 
 // fbm octaves baked into shaders
 export const FBM = LOW ? 3 : 5

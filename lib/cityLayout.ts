@@ -52,7 +52,11 @@ function generate() {
   const pick = (): [number, number, number] => PALETTE[rnd() < 0.1 ? 3 : Math.floor(rnd() * 3)]
 
   // A tower = stacked setback tiers from y=0 up to `top`, capped by an antenna.
-  const tower = (x: number, z: number, w0: number, d0: number, top: number, tint: [number, number, number]) => {
+  // Lower-plane crossing height (city-Y) at a tower's z — the same mapping the
+  // hero towers use to punch their holes. tilt makes it dip toward the camera.
+  const planeY = (z: number) => 135 - (z + 2) * tanT
+
+  const tower = (x: number, z: number, w0: number, d0: number, top: number, tint: [number, number, number], guardPlane = false) => {
     const n = 2 + Math.floor(rnd() * 3)
     let y = 0, w = w0, d = d0
     for (let s = 0; s < n; s++) {
@@ -62,7 +66,12 @@ function generate() {
       w *= 0.66 + rnd() * 0.14
       d *= 0.66 + rnd() * 0.14
     }
-    if (rnd() < 0.75) ants.push({ x, y: top, z, h: 8 + rnd() * 22, tint })
+    // Antenna rnd is always consumed (keeps the PRNG sequence stable for hero
+    // towers); fillers just skip the spire if it would pierce the plane holeless.
+    if (rnd() < 0.75) {
+      const h = 8 + rnd() * 22
+      if (!guardPlane || top + h < planeY(z) - 3) ants.push({ x, y: top, z, h, tint })
+    }
   }
 
   // The whole city must fit inside the lower plane's footprint (same size as
@@ -95,7 +104,7 @@ function generate() {
       const w0 = 7 + rnd() * 8
       const d0 = 7 + rnd() * 8
       const top = 16 + Math.pow(rnd(), 1.9) * 78
-      tower(x, z, w0, d0, top, pick())
+      tower(x, z, w0, d0, top, pick(), true)
     }
 
   // Pack to typed arrays for instancing.

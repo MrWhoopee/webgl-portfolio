@@ -223,7 +223,9 @@ export default function SectionPlanes() {
     const g = new THREE.PlaneGeometry(440, 760, s, s); g.rotateX(-Math.PI / 2); return g
   }, [])
   const lowerGeo = useMemo(() => {
-    const s = LOW ? 100 : 170
+    // Each vertex runs the NHOLES tear loop + chaos churn, so subdivision is the
+    // dominant vertex cost — 140 still reads sharp, ~32% lighter than 170.
+    const s = LOW ? 90 : 140
     const g = new THREE.PlaneGeometry(440, 760, s, s); g.rotateX(-Math.PI / 2); return g
   }, [])
 
@@ -252,7 +254,7 @@ export default function SectionPlanes() {
   const shardGeo  = useMemo(() => new THREE.TetrahedronGeometry(1, 0), [])
   const shardDummy = useMemo(() => new THREE.Object3D(), [])
   const shardData = useMemo(() => {
-    const per = LOW ? 6 : 12
+    const per = LOW ? 4 : 8
     return CITY_HOLES.flatMap(([hx, hz, r]) =>
       Array.from({ length: per }, () => {
         const a = Math.random() * Math.PI * 2
@@ -262,7 +264,8 @@ export default function SectionPlanes() {
           z: hz + Math.sin(a) * rr,
           phase: Math.random(),
           speed: 0.10 + Math.random() * 0.14,
-          size: 1.8 + Math.random() * 3.0,
+          // smaller caps cut additive overdraw through the bloom mip chain
+          size: 1.4 + Math.random() * 2.2,
           ax: Math.random() * 2 - 1, ay: Math.random() * 2 - 1, az: Math.random() * 2 - 1,
           spin: 0.5 + Math.random() * 1.6,
         }
