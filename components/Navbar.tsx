@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useLenis } from 'lenis/react'
+import { isLocked, useEggPhase } from '@/lib/egg'
 
 const CHARS = '!<>-_\\/[]{}=+*^?#@%$~|'
 
@@ -64,6 +65,7 @@ const TICKS = [
 
 export default function Navbar() {
   const lenis       = useLenis()
+  const eggPhase    = useEggPhase()
   const [visible,   setVisible]  = useState(true)
   const [scramble,  setScramble] = useState(false)
   const [codeLine,  setCodeLine] = useState('')
@@ -97,6 +99,9 @@ export default function Navbar() {
   function scrollTo(href: string) {
     lenis?.scrollTo(href, { duration: 1.6 })
   }
+
+  // The easter egg locks the site away once the core detonates.
+  if (isLocked(eggPhase)) return null
 
   return (
     <nav

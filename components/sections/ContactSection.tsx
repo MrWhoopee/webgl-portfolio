@@ -1,3 +1,5 @@
+import DecodeText from "@/components/DecodeText";
+
 const LINKS = [
   { label: "GitHub", href: "https://github.com/MrWhoopee" },
   {
@@ -16,26 +18,26 @@ export default function ContactSection() {
         className="max-w-2xl p-[42px] md:p-[50px]"
         style={{ padding: "3px", background: "rgba(8,2,20,0.55)", backdropFilter: "blur(3px)", WebkitBackdropFilter: "blur(3px)" }}
       >
-        <p
-          className="text-xs tracking-[0.3em] uppercase mb-6"
+        <DecodeText
+          as="p"
+          text="03 / Contact"
+          className="text-xs tracking-[0.3em] uppercase mb-6 block"
           style={{ color: "#7C3AED", fontFamily: "Space Mono, monospace" }}
-        >
-          03 / Contact
-        </p>
+        />
 
         <h2 className="text-4xl md:text-5xl font-bold text-white mb-6 leading-tight">
-          Let&apos;s build something
+          <DecodeText text="Let's build something" delay={120} />
           <br />
-          <span style={{ color: "#EC4899" }}>together</span>
+          <DecodeText text="together" delay={300} style={{ color: "#EC4899" }} />
         </h2>
 
-        <p
-          className="text-lg text-slate-300 mb-10 leading-relaxed"
+        <DecodeText
+          as="p"
+          delay={420}
+          text="Open to interesting projects and collaborations. Drop me a message — I usually respond within a day."
+          className="text-lg text-slate-300 mb-10 leading-relaxed block"
           style={{ fontFamily: "Rajdhani, sans-serif", fontSize: "1.15rem" }}
-        >
-          Open to interesting projects and collaborations. Drop me a message — I
-          usually respond within a day.
-        </p>
+        />
 
         <div className="flex flex-col gap-4">
           {LINKS.map(({ label, href }) => (

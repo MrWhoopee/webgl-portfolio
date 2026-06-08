@@ -1,4 +1,5 @@
 import SceneLoader from '@/components/three/SceneLoader'
+import SecretLayer from '@/components/SecretLayer'
 import Navbar from '@/components/Navbar'
 import AudioManager from '@/components/AudioManager'
 import TerminalCode from '@/components/TerminalCode'
@@ -11,6 +12,7 @@ export default function Home() {
   return (
     <>
       <SceneLoader />
+      <SecretLayer />
       <Navbar />
       <AudioManager />
       <TerminalCode />

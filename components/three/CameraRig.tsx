@@ -1,6 +1,7 @@
 'use client'
 import { useFrame, useThree } from '@react-three/fiber'
 import { scrollState } from '@/lib/scroll'
+import { eggState } from '@/lib/egg'
 
 /* Keyframed vertical descent: pink planes → cyberpunk city → neutron core.
    [scroll progress, camera Y] — interpolated linearly between stops. */
@@ -43,6 +44,14 @@ export default function CameraRig() {
     camera.position.x += (pointer.x * 1.4 - camera.position.x) * 0.06
     camera.position.y = y
     camera.position.z = 35 + pull
+
+    // Easter-egg core shake — random jitter that decays after each click.
+    if (eggState.shake > 0.001) {
+      const s = eggState.shake
+      camera.position.x += (Math.random() - 0.5) * s * 7
+      camera.position.y += (Math.random() - 0.5) * s * 7
+      eggState.shake *= 0.86
+    }
 
     camera.lookAt(pointer.x * 0.4, y - 9, -30)
   })

@@ -1,6 +1,8 @@
 'use client'
+import { useEffect } from 'react'
 import { ReactLenis, useLenis } from 'lenis/react'
 import { scrollState, emitScroll } from '@/lib/scroll'
+import { onEgg, isLocked } from '@/lib/egg'
 
 // Dev-only: react-three-fiber still instantiates THREE.Clock under the hood, so
 // three r0.184 logs its deprecation warning once per <Canvas>. Silence just that
@@ -18,13 +20,16 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
 }
 
 function LenisSync() {
-  useLenis(({ scroll, progress, velocity }) => {
+  const lenis = useLenis(({ scroll, progress, velocity }) => {
     scrollState.direction = velocity > 0.02 ? 1 : velocity < -0.02 ? -1 : 0
     scrollState.progress = progress
     scrollState.velocity = velocity
     scrollState.scrollY = scroll
     emitScroll()
   })
+
+  // Freeze scrolling for good once the easter egg detonates the core.
+  useEffect(() => onEgg(() => { if (isLocked()) lenis?.stop() }), [lenis])
   return null
 }
 

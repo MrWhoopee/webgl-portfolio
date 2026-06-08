@@ -1,18 +1,20 @@
 'use client'
-import { useRef, useMemo } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useRef, useMemo, useEffect } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { scrollState } from '@/lib/scroll'
 import { audioState } from '@/lib/audio'
 import { LOW, FBM } from '@/lib/quality'
 import { CITY_Y, CITY_Z } from './CyberCity'
+import { coreClick, eggState, heat, useEggPhase } from '@/lib/egg'
+import CoreExplosion from './CoreExplosion'
 
 /* A neon-blue star-core deep below the city, housed in a vast machine room of
    pipes and switch panels. Its whole surface boils (granulation + flares) and
    pulses with the spectrum, while a forest of energy cables climbs from it up
    to the city base — the core powers everything above. */
 const CORE_Y = -490
-const RADIUS = 55
+export const RADIUS = 55
 const NCABLES = 64
 
 /* ───────────────────────────  STAR CORE  ───────────────────────────
@@ -30,6 +32,14 @@ float noise(vec3 p){
 }
 float fbm(vec3 p){ float s=0.0, a=0.5; for(int i=0;i<FBM;i++){ s+=a*noise(p); p*=2.03; a*=0.5; } return s; }
 `
+/* Easter-egg heat ramp: yellow → orange → red, spread across all 50 clicks. */
+const heatGlsl = /* glsl */`
+vec3 heatColor(float h){
+  return h < 0.5
+    ? mix(vec3(1.0,0.88,0.25), vec3(1.0,0.45,0.05), h*2.0)        // yellow → orange
+    : mix(vec3(1.0,0.45,0.05), vec3(1.0,0.06,0.0), (h-0.5)*2.0);  // orange → red
+}
+`
 const coreVert = /* glsl */`
 uniform float uTime, uLevel, uAudio;
 uniform sampler2D uSpectrum;
@@ -37,7 +47,7 @@ varying float vDisp;
 varying vec3  vN;
 varying vec3  vView;
 varying vec3  vDir;
-${noiseGlsl}
+${noiseGlsl}${heatGlsl}
 void main() {
   vec3 n = normalize(position);
   // FFT band scattered in patches over the WHOLE sphere (not a left→right sweep)
@@ -56,13 +66,13 @@ void main() {
 }
 `
 const coreFrag = /* glsl */`
-uniform float uTime, uOpacity, uLevel, uAudio;
+uniform float uTime, uOpacity, uLevel, uAudio, uHeat;
 uniform sampler2D uSpectrum;
 varying float vDisp;
 varying vec3  vN;
 varying vec3  vView;
 varying vec3  vDir;
-${noiseGlsl}
+${noiseGlsl}${heatGlsl}
 void main() {
   vec3 n = normalize(vN);
   vec3 v = normalize(vView);
@@ -94,18 +104,27 @@ void main() {
   col += vec3(0.2, 0.55, 1.0)  * fres * 1.0;                  // limb / corona rim
   col += vec3(0.5, 0.85, 1.0)  * hot * 0.6;
   col += vec3(0.6, 0.95, 1.0)  * samp * (0.5 + uLevel) * 1.5; // equalizer over the whole sphere
-  col *= uOpacity * 0.38;                                     // dimmer overall — was blowing out the scene
+
+  // Easter egg: clicking cycles the core yellow → red → blue → violet.
+  vec3 warm = heatColor(uHeat);
+  vec3 warmCol = warm * (0.5 + gran * 0.7);
+  warmCol += warm * filaments * 1.3;
+  warmCol += warm * fres;
+  warmCol += warm * samp * (0.5 + uLevel) * 1.5;
+  col = mix(col, warmCol, smoothstep(0.0, 0.12, uHeat));      // commit to the heat colour quickly
+
+  col *= uOpacity * (0.38 + uHeat * 0.45);                    // brighter as it cycles toward detonation
   gl_FragColor = vec4(col, 1.0);
 }
 `
 
 /* corona — plasma streamers reaching off the limb, flowing outward */
 const coronaFrag = /* glsl */`
-uniform float uOpacity, uTime;
+uniform float uOpacity, uTime, uHeat;
 varying vec3 vN;
 varying vec3 vView;
 varying vec3 vDir;
-${noiseGlsl}
+${noiseGlsl}${heatGlsl}
 void main() {
   vec3 n = normalize(vN);
   vec3 v = normalize(vView);
@@ -113,7 +132,8 @@ void main() {
   // filaments streaming away from the core (noise advected radially outward)
   float s = fbm(vDir * 5.0 - vec3(0.0, 0.0, uTime * 0.5) + fbm(vDir * 2.0 + uTime * 0.2));
   float streak = smoothstep(0.48, 0.7, s);
-  vec3 col = vec3(0.14, 0.45, 1.0) * rim * (0.5 + streak * 1.8);
+  vec3 base = mix(vec3(0.14, 0.45, 1.0), heatColor(uHeat), smoothstep(0.0, 0.12, uHeat));
+  vec3 col = base * rim * (0.5 + streak * 1.8);
   gl_FragColor = vec4(col * 0.55, rim * uOpacity * (0.4 + streak * 0.7) * 0.6);
 }
 `
@@ -156,6 +176,8 @@ void main() {
 `
 
 export default function NeutronCore() {
+  const phase     = useEggPhase()
+  const exploded  = phase === 'exploding'
   const root      = useRef<THREE.Group>(null)
   const coreMat   = useRef<THREE.ShaderMaterial>(null)
   const coronaMat = useRef<THREE.ShaderMaterial>(null)
@@ -164,6 +186,44 @@ export default function NeutronCore() {
   const smooth    = useRef(0)
   const gate      = useRef(0)   // 0..1 audio on/off, eased for soft transitions
   const lvl       = useRef(0)   // smoothed loudness (fast-attack, slow-release)
+
+  const { camera, gl } = useThree()
+
+  // The scene canvas sits behind the DOM (-z-10), so full-screen page sections
+  // swallow pointer events before R3F can raycast. Listen on window instead and
+  // hit-test the core ourselves — works whether the glass is intact or shattered.
+  useEffect(() => {
+    const ray = new THREE.Raycaster()
+    const ndc = new THREE.Vector2()
+    const sphere = new THREE.Sphere(new THREE.Vector3(0, CORE_Y, CITY_Z), RADIUS * 1.15)
+    const onDown = (e: PointerEvent) => {
+      if (!root.current?.visible) return                 // only when at the core
+      if (eggState.phase !== 'idle') return
+      const rect = gl.domElement.getBoundingClientRect()
+      ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1
+      ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1
+      ray.setFromCamera(ndc, camera)
+      if (ray.ray.intersectsSphere(sphere)) coreClick()
+    }
+    const onMove = (e: PointerEvent) => {
+      if (!root.current?.visible || eggState.phase !== 'idle') {
+        document.body.style.cursor = ''
+        return
+      }
+      const rect = gl.domElement.getBoundingClientRect()
+      ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1
+      ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1
+      ray.setFromCamera(ndc, camera)
+      document.body.style.cursor = ray.ray.intersectsSphere(sphere) ? 'pointer' : ''
+    }
+    window.addEventListener('pointerdown', onDown)
+    window.addEventListener('pointermove', onMove)
+    return () => {
+      window.removeEventListener('pointerdown', onDown)
+      window.removeEventListener('pointermove', onMove)
+      document.body.style.cursor = ''
+    }
+  }, [camera, gl])
 
   const freq = useMemo(() => new Uint8Array(64), [])
   const spectrum = useMemo(() => {
@@ -179,9 +239,9 @@ export default function NeutronCore() {
 
   const coreUniforms = useMemo(() => ({
     uTime: { value: 0 }, uOpacity: { value: 0 }, uAudio: { value: 0 },
-    uLevel: { value: 0 }, uSpectrum: { value: spectrum },
+    uLevel: { value: 0 }, uHeat: { value: 0 }, uSpectrum: { value: spectrum },
   }), [spectrum])
-  const coronaUniforms = useMemo(() => ({ uOpacity: { value: 0 }, uTime: { value: 0 } }), [])
+  const coronaUniforms = useMemo(() => ({ uOpacity: { value: 0 }, uTime: { value: 0 }, uHeat: { value: 0 } }), [])
   const cableUniforms  = useMemo(() => ({ uTime: { value: 0 }, uOpacity: { value: 0 }, uAudio: { value: 0 } }), [])
 
   // Cables: gentle béziers from the core's upper hemisphere up to the city base.
@@ -248,15 +308,18 @@ export default function NeutronCore() {
     const target = level * gate.current
     lvl.current += (target - lvl.current) * (target > lvl.current ? 0.5 : 0.06)
 
+    const h = heat()
     if (coreMat.current) {
       coreMat.current.uniforms.uTime.value = t
       coreMat.current.uniforms.uOpacity.value = o
       coreMat.current.uniforms.uAudio.value = gate.current
       coreMat.current.uniforms.uLevel.value = lvl.current
+      coreMat.current.uniforms.uHeat.value = h
     }
     if (coronaMat.current) {
       coronaMat.current.uniforms.uOpacity.value = o
       coronaMat.current.uniforms.uTime.value = t
+      coronaMat.current.uniforms.uHeat.value = h
     }
     if (cableMat.current) {
       cableMat.current.uniforms.uTime.value = t
@@ -278,11 +341,11 @@ export default function NeutronCore() {
         <pointLight color="#7a5cff" position={[-140, -40, -40]} distance={500} decay={1.3} intensity={0} />
       </group>
 
-      <mesh geometry={coreGeo} frustumCulled={false}>
+      <mesh geometry={coreGeo} frustumCulled={false} visible={!exploded}>
         <shaderMaterial ref={coreMat} vertexShader={coreVert} fragmentShader={coreFrag} uniforms={coreUniforms} />
       </mesh>
 
-      <mesh geometry={coronaGeo} frustumCulled={false}>
+      <mesh geometry={coronaGeo} frustumCulled={false} visible={!exploded}>
         <shaderMaterial
           ref={coronaMat}
           vertexShader={coronaVert}
@@ -292,6 +355,9 @@ export default function NeutronCore() {
           blending={THREE.AdditiveBlending}
         />
       </mesh>
+
+      {/* Easter egg: the detonation flash once the core is fully heated. */}
+      {exploded && <CoreExplosion radius={RADIUS} />}
 
       <lineSegments geometry={cableGeo} frustumCulled={false}>
         <shaderMaterial

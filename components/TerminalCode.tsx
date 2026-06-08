@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { useLenis } from 'lenis/react'
+import { isLocked, useEggPhase } from '@/lib/egg'
 
 const ALL_LINES = [
   '$ npm run dev',
@@ -76,6 +77,7 @@ export default function TerminalCode() {
   const [visible, setVisible] = useState(false)
   const [lines,   setLines]   = useState(() => ALL_LINES.slice(0, 22))
   const idxRef   = useRef(22)
+  const eggPhase = useEggPhase()
 
   useLenis(({ progress }) => { setVisible(progress > 0.24) })
 
@@ -90,6 +92,8 @@ export default function TerminalCode() {
     }, 260)
     return () => clearInterval(id)
   }, [])
+
+  if (isLocked(eggPhase)) return null
 
   return (
     <div

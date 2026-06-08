@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { scrollState } from '@/lib/scroll'
 import { audioState } from '@/lib/audio'
+import { eggState, onEgg, isLocked, useEggPhase } from '@/lib/egg'
 
 /* Owns both soundtracks and one shared analyser. Synthwave plays over the hero
    and pink planes; as the camera dives into the city the mix crossfades to
@@ -16,11 +17,15 @@ const SEG = 14   // volume column resolution (segments that cascade in on open)
 export default function AudioManager() {
   const synthRef = useRef<HTMLAudioElement>(null)
   const cyberRef = useRef<HTMLAudioElement>(null)
+  const warpRef  = useRef<HTMLAudioElement>(null)   // secret scene: starfall-warpath
   const ctxRef   = useRef<AudioContext | null>(null)
   const synthGain = useRef<GainNode | null>(null)
   const cyberGain = useRef<GainNode | null>(null)
+  const warpGain  = useRef<GainNode | null>(null)
   const masterGain = useRef<GainNode | null>(null)
   const built = useRef(false)
+  const siteSilenced = useRef(false)
+  const secretStarted = useRef(false)
   const playingRef = useRef(false)
   const trackRef = useRef<'synthwave' | 'cyber-city'>('synthwave')
 
@@ -28,6 +33,7 @@ export default function AudioManager() {
   const [volume, setVolume] = useState(0.25)
   const [track, setTrack] = useState<'synthwave' | 'cyber-city'>('synthwave')
   const [volOpen, setVolOpen] = useState(false)
+  const locked = isLocked(useEggPhase())
 
   const groupRef = useRef<HTMLDivElement>(null)
   const colRef = useRef<HTMLDivElement>(null)
@@ -35,8 +41,8 @@ export default function AudioManager() {
 
   const build = () => {
     if (built.current) return
-    const s = synthRef.current, c = cyberRef.current
-    if (!s || !c) return
+    const s = synthRef.current, c = cyberRef.current, w = warpRef.current
+    if (!s || !c || !w) return
     const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
     const ctx = new Ctx()
     const an = ctx.createAnalyser()
@@ -44,13 +50,14 @@ export default function AudioManager() {
     an.smoothingTimeConstant = 0.6
     an.minDecibels = -85
     an.maxDecibels = -25
-    const sg = ctx.createGain(), cg = ctx.createGain(), mg = ctx.createGain()
-    sg.gain.value = 1; cg.gain.value = 0; mg.gain.value = volume
+    const sg = ctx.createGain(), cg = ctx.createGain(), wg = ctx.createGain(), mg = ctx.createGain()
+    sg.gain.value = 1; cg.gain.value = 0; wg.gain.value = 0; mg.gain.value = volume
     ctx.createMediaElementSource(s).connect(sg).connect(an)
     ctx.createMediaElementSource(c).connect(cg).connect(an)
+    ctx.createMediaElementSource(w).connect(wg).connect(an)
     an.connect(mg).connect(ctx.destination)
     ctxRef.current = ctx
-    synthGain.current = sg; cyberGain.current = cg; masterGain.current = mg
+    synthGain.current = sg; cyberGain.current = cg; warpGain.current = wg; masterGain.current = mg
     audioState.analyser = an
     built.current = true
   }
@@ -75,6 +82,14 @@ export default function AudioManager() {
   useEffect(() => {
     let raf = 0
     const loop = () => {
+      // Once the egg detonates we own the mix: freeze the scroll crossfade and
+      // just report how far we are into the starfall track (drives the warp).
+      if (isLocked()) {
+        const w = warpRef.current
+        if (w && !w.paused) eggState.warpElapsed = w.currentTime
+        raf = requestAnimationFrame(loop)
+        return
+      }
       const p = scrollState.progress
       const k = Math.min(1, Math.max(0, (p - FADE_START) / (FADE_END - FADE_START)))
       if (synthGain.current) synthGain.current.gain.value = 1 - k
@@ -105,6 +120,37 @@ export default function AudioManager() {
     g.gain.setValueAtTime(Math.max(g.gain.value, 0.0001), now)
     g.gain.linearRampToValueAtTime(to, now + dur)
   }
+
+  // Easter egg: silence the site tracks the instant the core detonates (the
+  // explosion is held in silence), then launch the secret soundtrack from the
+  // top once the warp flight actually begins — the warp visuals are timed to it.
+  useEffect(() => onEgg(() => {
+    const ramp = (g: GainNode | null, to: number, dur: number) => {
+      const ctx = ctxRef.current
+      if (!g || !ctx) return
+      const now = ctx.currentTime
+      g.gain.cancelScheduledValues(now)
+      g.gain.setValueAtTime(g.gain.value, now)
+      g.gain.linearRampToValueAtTime(to, now + dur)
+    }
+    if (eggState.phase === 'exploding' && !siteSilenced.current) {
+      siteSilenced.current = true
+      build()
+      ctxRef.current?.resume()
+      ramp(synthGain.current, 0, 0.4)
+      ramp(cyberGain.current, 0, 0.4)
+      window.setTimeout(() => { synthRef.current?.pause(); cyberRef.current?.pause() }, 500)
+    }
+    if (eggState.phase === 'warp' && !secretStarted.current) {
+      secretStarted.current = true
+      build()
+      ctxRef.current?.resume()
+      if (warpRef.current) { warpRef.current.currentTime = 0; warpRef.current.play().catch(() => {}) }
+      setPlay(true)
+      fadeMaster(volume, 0.4)
+      ramp(warpGain.current, 1, 0.8)
+    }
+  }), [volume])
 
   const toggle = () => {
     if (playingRef.current) {
@@ -146,7 +192,9 @@ export default function AudioManager() {
     <>
       <audio ref={synthRef} src="/audio/synthwave-track.mp3" loop preload="auto" />
       <audio ref={cyberRef} src="/audio/cyber-city.mp3" loop preload="auto" />
+      <audio ref={warpRef} src="/audio/starfall-warpath.mp3" loop preload="auto" />
 
+      {!locked && (
       <div
         className="pointer-events-auto fixed bottom-8 right-8 z-50 flex flex-col items-center gap-2 rounded-none border p-2.5 backdrop-blur-md md:px-4 md:py-2.5"
         style={{ borderColor: '#ff007f66', background: 'rgba(10,3,18,0.55)', boxShadow: '0 0 22px #ff007f33' }}
@@ -241,6 +289,7 @@ export default function AudioManager() {
           {track}
         </span>
       </div>
+      )}
     </>
   )
 }
