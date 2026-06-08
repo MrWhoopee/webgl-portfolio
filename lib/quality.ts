@@ -13,6 +13,12 @@ function detect(): boolean {
 // true → low-power device (mobile or weak desktop)
 export const LOW = detect()
 
+// true → any mobile/tablet (touch device). Lets us tell a weak desktop apart
+// from a phone/tablet when a cut should hit one but not the other.
+export const MOBILE =
+  typeof navigator !== 'undefined' &&
+  /Android|iPhone|iPad|iPod|IEMobile|Opera Mini|Mobile|Silk/i.test(navigator.userAgent || '')
+
 // true → handheld phone (not tablet/desktop). Android tablets omit "Mobile" and
 // iPads report as iPad/Mac, so this stays false for them — hover effects that
 // need a real cursor are kept on tablets, dropped on phones.

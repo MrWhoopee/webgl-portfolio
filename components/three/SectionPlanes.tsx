@@ -4,7 +4,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { scrollState } from '@/lib/scroll'
 import { audioState } from '@/lib/audio'
-import { LOW } from '@/lib/quality'
+import { LOW, MOBILE } from '@/lib/quality'
 import { TILT, UPPER_Y, LOWER_Y, PLANE_Z, CITY_HOLES } from '@/lib/cityLayout'
 
 const NHOLES = CITY_HOLES.length   // one tear per hero tower, punched to match it
@@ -225,9 +225,9 @@ export default function SectionPlanes() {
   const shardGeo  = useMemo(() => new THREE.TetrahedronGeometry(1, 0), [])
   const shardDummy = useMemo(() => new THREE.Object3D(), [])
   const shardData = useMemo(() => {
-    if (LOW) return []   // weak GPUs skip the levitating shards entirely
+    if (LOW && !MOBILE) return []   // weak desktops skip them; mobile keeps them
     return CITY_HOLES.flatMap(([hx, hz, r]) =>
-      Array.from({ length: 8 }, () => {
+      Array.from({ length: MOBILE ? 5 : 8 }, () => {
         const a = Math.random() * Math.PI * 2
         const rr = Math.sqrt(Math.random()) * r * 0.7
         return {
@@ -321,8 +321,8 @@ export default function SectionPlanes() {
           />
         </mesh>
 
-        {/* Levitating polygon shards rising from each tear — desktop only */}
-        {!LOW && (
+        {/* Levitating polygon shards rising from each tear — hidden only on weak desktops */}
+        {(!LOW || MOBILE) && (
           <instancedMesh ref={shards} args={[shardGeo, undefined, shardData.length]} frustumCulled={false}>
             <meshBasicMaterial
               ref={shardMat}
