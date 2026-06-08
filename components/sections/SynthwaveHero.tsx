@@ -98,7 +98,7 @@ export default function SynthwaveHero() {
                 color: '#a5f3ff',
               }}
             >
-              <span className="hero-badge-text">available for hire</span>
+              <span className="hero-badge-text">currently employed</span>
               <span className="cursor-blink font-mono" style={{ color: '#ff007f' }}>_</span>
             </span>
           </h1>

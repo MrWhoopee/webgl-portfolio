@@ -12,7 +12,7 @@
   from { opacity: 0; transform: translateY(6px) scale(0.94); }
   to   { opacity: 1; transform: translateY(0)   scale(1); }
 }
-/* "available for hire" = 18 chars → type, hold, erase, loop forever */
+/* "currently employed" = 18 chars → type, hold, erase, loop forever */
 @keyframes typewriter {
   0%   { width: 0; }
   40%  { width: 18ch; }
