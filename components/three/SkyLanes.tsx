@@ -117,8 +117,7 @@ void main() {
   float flow   = fract(vUv.y - uTime * 0.5);
   float dash   = smoothstep(0.5, 0.0, abs(flow - 0.5)) * center;     // running center light
   vec3 col = vec3(0.08, 0.4, 0.85) * edge * 0.45 + vec3(0.5, 0.85, 1.0) * dash * 1.0;
-  float fog = smoothstep(70.0, 360.0, vFog);
-  gl_FragColor = vec4(col, uOpacity * (edge * 0.3 + dash) * (1.0 - fog));
+  gl_FragColor = vec4(col, uOpacity * (edge * 0.3 + dash));
 }
 `
 
@@ -173,7 +172,7 @@ export default function SkyLanes() {
   useFrame(({ clock }, dt) => {
     const t = clock.getElapsedTime()
     const p = scrollState.progress
-    const op = Math.min(1, Math.max(0, (p - 0.34) / 0.12))
+    const op = Math.min(1, Math.max(0, (p - 0.2) / 0.12))
     smooth.current += (op - smooth.current) * 0.06
     const o = smooth.current
     const playing = audioState.playing && !!audioState.analyser

@@ -96,6 +96,7 @@ varying vec2  vGrid;
 varying float vHeight;
 varying float vFog;
 varying float vTear;
+varying float vGlitch;
 
 float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 
@@ -110,12 +111,14 @@ void main() {
 
   vec2  id  = floor(pos.xz * 0.5);
   float rnd = hash(id);
+  // sparse toxic cells, drifting slowly (no harsh flicker)
+  vGlitch = step(0.86, hash(id + floor(uTime * 2.5)));
 
+  float samp = 0.0;
   if (uAudio > 0.5) {
     float band = fract(pos.x * 0.011 + pos.z * 0.017);
-    float samp = texture2D(uSpectrum, vec2(band, 0.5)).r;
+    samp = texture2D(uSpectrum, vec2(band, 0.5)).r;
     w *= 1.0 + uLevel * 0.8 + samp * 0.8;
-    w += step(0.62, fract(rnd * 7.0 + uTime * 9.0)) * (0.4 + samp * 1.6) * rnd;
   }
 
   float tear = 0.0;
@@ -130,7 +133,21 @@ void main() {
   w += lift * (2.5 + 2.0 * sin(uTime * 3.0 + rnd * 6.28)); // rim shards levitate
 
   pos.y  += w;
-  vHeight = pos.y;
+  vHeight = pos.y;          // colour height is captured here — the glitch spikes
+                           // below raise the geometry but never brighten the grid
+
+  // Lower plane is far more unstable than the upper one: a restless churn always,
+  // and sharp random vertical glitch shards that spike hard on the beat.
+  float chaos = sin(pos.x * 1.7 + pos.z * 1.1 + uTime * 2.6) * 0.5
+              + sin(pos.x * 0.9 - pos.z * 1.3 + uTime * 3.7) * 0.35;
+  chaos += sin(pos.x * 3.3 + uTime * 5.5) * sin(pos.z * 2.9 - uTime * 4.3) * 0.45; // finer restless ripple
+  float g1 = step(0.80, fract(rnd * 17.0 + uTime * 7.0));   // frequent sharp pops
+  float g2 = step(0.93, fract(rnd * 41.0 - uTime * 13.0));  // rare tall spikes
+  chaos += g1 * (0.4 + samp * 3.0) * rnd
+         + g2 * (0.6 + samp * 5.0);                         // tall glitch shards even when silent
+  // mobile: keep the surface calm — minimal oscillation so it doesn't spike high
+  // (string literals so the GLSL float keeps its .0 — a bare 1 would be an int and fail to compile)
+  pos.y += chaos * ${LOW ? '0.1' : '1.0'};
 
   float farFade  = clamp((-pos.z - 170.0) / 40.0, 0.0, 1.0);
   float nearFade = clamp((pos.z - 170.0) / 40.0, 0.0, 1.0);
@@ -148,26 +165,42 @@ varying vec2  vGrid;
 varying float vHeight;
 varying float vFog;
 varying float vTear;
+varying float vGlitch;
 ${gridGlsl}
 void main() {
   if (vTear > 0.80) discard;                 // the punched-through gap
 
+  // chromatic-split grid lines — an unstable, mis-registered digital surface
   float line = gridLine(vGrid, 0.5);
+  float lr   = gridLine(vGrid + vec2(0.8, 0.0), 0.5);   // red ghost
+  float lb   = gridLine(vGrid - vec2(0.8, 0.0), 0.5);   // blue ghost
   float rim  = smoothstep(0.50, 0.80, vTear);
-  if (line < 0.02 && rim < 0.02) discard;
+  float vis  = max(max(line, lr), max(lb, rim));
+  if (vis < 0.02) discard;
 
   float t = clamp(vHeight / 6.0, 0.0, 1.0);
-  vec3 col = mix(vec3(1.0, 0.10, 0.80), vec3(1.0, 0.30, 0.55), t);
-  col += vec3(1.0, 0.10, 0.55) * (0.6 + t * 1.6);
+  vec3 grid = mix(vec3(1.0, 0.10, 0.80), vec3(1.0, 0.30, 0.55), t);
+  vec3 col  = grid * line + vec3(1.0, 0.10, 0.55) * (0.6 + t * 1.6) * line;
+  col.r += lr * 0.7;                          // chromatic ghosting
+  col.b += lb * 0.8;
 
-  col = mix(col, vec3(1.0), rim);
-  col += vec3(1.0) * rim * (0.6 + uLevel * 1.2);
+  // toxic neon — acid-green glitch patches drifting across the surface
+  vec3 toxic = vec3(0.40, 1.0, 0.12);
+  col = mix(col, toxic, vGlitch * (0.3 + line) * 0.55);
 
-  col *= 0.55;                                // tone down — was searing the eyes
-  float alpha = uOpacity * max(line, rim) * (1.0 - vFog);
+  vec3 rimCol = vec3(0.20, 0.62, 1.0);       // blue tear rim
+  col = mix(col, rimCol, rim);
+  col += rimCol * rim * (0.6 + uLevel * 1.2);
+
+  col *= 0.5;                                 // keep it dim — instability, not glare
+  float alpha = uOpacity * vis * (1.0 - vFog);
   gl_FragColor = vec4(col, alpha);
 }
 `
+
+/* Levitating polygon shards rise out of each tear where a hero tower punched
+   through — little tumbling fragments of the grid, blue and glowing. */
+const SHARD_RISE = 18
 
 const UPPER_POS = [0, UPPER_Y, PLANE_Z] as const   // raised — its top reads as the hero's floor
 const LOWER_POS = [0, LOWER_Y, PLANE_Z] as const   // 5× the old gap below the upper plane
@@ -213,6 +246,29 @@ export default function SectionPlanes() {
     uLevel: { value: 0 }, uSpectrum: { value: spectrum }, uHoles: { value: holeVecs },
   }), [spectrum, holeVecs])
 
+  // Levitating polygon shards (instanced tetrahedra) tumbling up out of each tear.
+  const shards    = useRef<THREE.InstancedMesh>(null)
+  const shardMat  = useRef<THREE.MeshBasicMaterial>(null)
+  const shardGeo  = useMemo(() => new THREE.TetrahedronGeometry(1, 0), [])
+  const shardDummy = useMemo(() => new THREE.Object3D(), [])
+  const shardData = useMemo(() => {
+    const per = LOW ? 6 : 12
+    return CITY_HOLES.flatMap(([hx, hz, r]) =>
+      Array.from({ length: per }, () => {
+        const a = Math.random() * Math.PI * 2
+        const rr = Math.sqrt(Math.random()) * r * 0.7
+        return {
+          x: hx + Math.cos(a) * rr,
+          z: hz + Math.sin(a) * rr,
+          phase: Math.random(),
+          speed: 0.10 + Math.random() * 0.14,
+          size: 1.8 + Math.random() * 3.0,
+          ax: Math.random() * 2 - 1, ay: Math.random() * 2 - 1, az: Math.random() * 2 - 1,
+          spin: 0.5 + Math.random() * 1.6,
+        }
+      }))
+  }, [])
+
   useFrame(({ clock }) => {
     const t  = clock.getElapsedTime()
     const p  = scrollState.progress
@@ -246,6 +302,23 @@ export default function SectionPlanes() {
       const cur = m.uniforms.uLevel.value as number
       m.uniforms.uLevel.value   = level > cur ? level : cur + (level - cur) * 0.18
     }
+
+    if (shards.current) {
+      for (let i = 0; i < shardData.length; i++) {
+        const s = shardData[i]
+        const tt = (s.phase + t * s.speed) % 1
+        // grow in as they rise, shrink out before looping — fades without per-instance alpha
+        const fade = Math.min(1, tt / 0.15) * Math.min(1, (1 - tt) / 0.3)
+        const sc = s.size * Math.max(0, fade)
+        shardDummy.position.set(s.x, tt * SHARD_RISE, s.z)
+        shardDummy.rotation.set(t * s.spin * s.ax, t * s.spin * s.ay, t * s.spin * s.az)
+        shardDummy.scale.setScalar(sc)
+        shardDummy.updateMatrix()
+        shards.current.setMatrixAt(i, shardDummy.matrix)
+      }
+      shards.current.instanceMatrix.needsUpdate = true
+    }
+    if (shardMat.current) shardMat.current.opacity = o
   })
 
   return (
@@ -273,6 +346,18 @@ export default function SectionPlanes() {
             transparent side={THREE.DoubleSide} depthWrite={false}
           />
         </mesh>
+
+        {/* Levitating polygon shards rising from each tear */}
+        <instancedMesh ref={shards} args={[shardGeo, undefined, shardData.length]} frustumCulled={false}>
+          <meshBasicMaterial
+            ref={shardMat}
+            color="#3aa6ff"
+            transparent opacity={0}
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+            toneMapped={false}
+          />
+        </instancedMesh>
       </group>
     </group>
   )

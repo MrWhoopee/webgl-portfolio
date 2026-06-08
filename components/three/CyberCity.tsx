@@ -37,8 +37,7 @@ void main() {
   float r   = clamp(length(vGrid) / 320.0, 0.0, 1.0);
   vec3  col = mix(vec3(0.0, 0.9, 1.0), vec3(1.0, 0.15, 0.85), r);
   col *= 0.14 + uLevel * 0.8;
-  float fog = smoothstep(70.0, 360.0, vFog);
-  gl_FragColor = vec4(col, uOpacity * line * (1.0 - fog) * 0.35);
+  gl_FragColor = vec4(col, uOpacity * line * 0.35);
 }
 `;
 
@@ -99,7 +98,9 @@ void main() {
     float rnd = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453);
     float audio = uAudio;
     
-    float staticLit = step(0.86, rnd);
+    // Only a handful of windows glow when the music is off (≈3–10 per building);
+    // the city really lights up only on the beat.
+    float staticLit = step(0.93, rnd);
     col += vTint * win * staticLit * 0.55;
     
     float beatLit = step(0.45, rnd) * (uLevel * 0.7 + samp) * audio;
@@ -113,11 +114,9 @@ void main() {
   float bw  = smoothstep(0.55, 0.0, min(edge.x, edge.y));
   col *= 1.0 - bw;
 
-  // ── ТУМАН ТА СМОГ ──
+  // No distance fog — atmosphere is the custom GroundFog only. Keep the base
+  // merge so towers don't cut hard at the floor.
   vec3 bg = vec3(0.0235, 0.0039, 0.0706);
-  float horizonFog = smoothstep(70.0, 360.0, vFog);
-  col = mix(col, bg, horizonFog);
-
   float floorMerge = 1.0 - smoothstep(0.0, 12.0, vWorldY);
   col = mix(col, bg, floorMerge * 0.8);
 
@@ -190,7 +189,7 @@ function Tiles() {
 
   useFrame(({ clock }) => {
     const p = scrollState.progress;
-    const op = Math.min(1, Math.max(0, (p - 0.34) / 0.12));
+    const op = Math.min(1, Math.max(0, (p - 0.2) / 0.12));
     smooth.current += (op - smooth.current) * 0.06;
     const an = audioState.analyser;
     const playing = audioState.playing && !!an;
@@ -234,6 +233,7 @@ function Antennas() {
   const mesh = useRef<THREE.InstancedMesh>(null);
   const mat = useRef<THREE.MeshBasicMaterial>(null);
   const smooth = useRef(0);
+  const gate = useRef(0);
 
   const geo = useMemo(() => new THREE.BoxGeometry(1, 1, 1), []);
 
@@ -257,9 +257,12 @@ function Antennas() {
 
   useFrame(() => {
     const p = scrollState.progress;
-    const op = Math.min(1, Math.max(0, (p - 0.34) / 0.12));
+    const op = Math.min(1, Math.max(0, (p - 0.2) / 0.12));
     smooth.current += (op - smooth.current) * 0.06;
-    if (mat.current) mat.current.opacity = smooth.current;
+    // Spires only glow while the music plays — dark otherwise.
+    const playing = audioState.playing && !!audioState.analyser;
+    gate.current += ((playing ? 1 : 0) - gate.current) * 0.05;
+    if (mat.current) mat.current.opacity = smooth.current * gate.current;
   });
 
   return (
@@ -314,8 +317,7 @@ void main() {
   col += vec3(1.0, 0.18, 0.22) * t2 * stream(vUv.y, -uTime, 0.4) * 1.6;
   float edge = smoothstep(0.0, 0.03, lane) * smoothstep(1.0, 0.97, lane);
   col += vec3(0.2, 0.7, 1.0) * 0.06 * edge;
-  float fog = smoothstep(70.0, 360.0, vFog);
-  gl_FragColor = vec4(col, uOpacity * (1.0 - fog));
+  gl_FragColor = vec4(col, uOpacity);
 }
 `;
 
@@ -351,7 +353,7 @@ function Roads() {
 
   useFrame(({ clock }) => {
     const p = scrollState.progress;
-    const op = Math.min(1, Math.max(0, (p - 0.34) / 0.12));
+    const op = Math.min(1, Math.max(0, (p - 0.2) / 0.12));
     smooth.current += (op - smooth.current) * 0.06;
     uniforms.uTime.value = clock.getElapsedTime();
     uniforms.uOpacity.value = smooth.current;
@@ -433,7 +435,7 @@ function GroundFog() {
 
   useFrame(({ clock }) => {
     const p = scrollState.progress;
-    const op = Math.min(1, Math.max(0, (p - 0.34) / 0.12));
+    const op = Math.min(1, Math.max(0, (p - 0.2) / 0.12));
     smooth.current += (op - smooth.current) * 0.06;
 
     if (mat.current) {
@@ -447,13 +449,13 @@ function GroundFog() {
       ref={mesh}
       args={[geo, undefined, FOG_LAYERS]}
       frustumCulled={false}
-      renderOrder={10} // Наказує рендерити туман ПІСЛЯ будівель, фіксить альфа-сортування
+      renderOrder={10} // малюємо туман ПІСЛЯ будівель
     >
       <shaderMaterial
         ref={mat}
         transparent
         depthWrite={false}
-        depthTest={true}
+        depthTest={true}    // пласкі площини в глибині 3D, а не пелена поверх усього
         blending={THREE.NormalBlending}
         uniforms={uniforms}
         vertexShader={
@@ -471,33 +473,17 @@ function GroundFog() {
         }
         fragmentShader={
           /* glsl */ `
-          uniform float uTime, uOpacity;
+          uniform float uOpacity;
           uniform vec3 uFogColor;
           varying vec2 vUv;
           varying vec2 vParams;
 
-          float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
-          float noise(vec2 p) {
-            vec2 i = floor(p), f = fract(p);
-            f = f*f*(3.0-2.0*f);
-            return mix(mix(hash(i), hash(i+vec2(1.0,0.0)), f.x), mix(hash(i+vec2(0.0,1.0)), hash(i+vec2(1.0,1.0)), f.x), f.y);
-          }
-
           void main() {
-            float speed = vParams.x;
             float layerOpacity = vParams.y;
-
-            // Схрещуємо два різних напрямки шуму для живого ефекту диму
-            vec2 motion1 = vec2(uTime * speed, uTime * speed * 0.6);
-            vec2 motion2 = vec2(uTime * -speed * 0.4, uTime * speed * 0.8);
-            float n = noise(vUv * 6.0 + motion1) * 0.65 + noise(vUv * 12.0 + motion2) * 0.35;
-            
-            // М'який спад до країв карти
+            // Просто пласкі сірі шари — без шумового «диму», лише м'який спад до країв.
             float dist = length(vUv - 0.5);
             float edgeFade = smoothstep(0.5, 0.28, dist);
-
-            float finalAlpha = n * layerOpacity * uOpacity * edgeFade * 0.85;
-            gl_FragColor = vec4(uFogColor, finalAlpha);
+            gl_FragColor = vec4(uFogColor, layerOpacity * uOpacity * edgeFade);
           }
         `
         }
@@ -523,7 +509,7 @@ export default function CyberCity() {
 
   useFrame(() => {
     const p = scrollState.progress;
-    const op = Math.min(1, Math.max(0, (p - 0.34) / 0.12));
+    const op = Math.min(1, Math.max(0, (p - 0.2) / 0.12));
     smooth.current += (op - smooth.current) * 0.06;
     const o = smooth.current;
 

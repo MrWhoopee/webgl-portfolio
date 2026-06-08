@@ -20,6 +20,9 @@ const tanT = Math.tan(TILT)
 // the plane's edges in the distance (the plane is wider, ±220 × ±380).
 export const HALF_X = 150
 export const HALF_Z = 300
+// Buildings no longer fade with distance, so cap how deep along -z they may spawn
+// — anything past this would stick out beyond the torn plane's visible far edge.
+const BUILD_DEPTH = -170
 
 const PALETTE: [number, number, number][] = [
   [0.0, 0.95, 1.0],   // cyan
@@ -67,19 +70,19 @@ function generate() {
   // camera (which sits near world z = +35; CITY_Z = -78).
   const CLEAR_Z = -45                              // world z; nothing built nearer
   const outside = (x: number, z: number) =>
-    Math.abs(x) > HALF_X || Math.abs(z) > HALF_Z || z + CITY_Z > CLEAR_Z
+    Math.abs(x) > HALF_X || Math.abs(z) > HALF_Z || z < BUILD_DEPTH || z + CITY_Z > CLEAR_Z
 
   // Hero towers: spread across the plane, pushed deep (away from the camera),
   // tall enough to break through the lower plane.
   const NHERO = 20
   for (let i = 0; i < NHERO; i++) {
     const x  = (rnd() - 0.5) * 2 * HALF_X
-    const z  = -60 - rnd() * (HALF_Z - 90)          // always deep, within the plane
+    const z  = -60 - rnd() * (-BUILD_DEPTH - 60)    // deep, but within the visible plane
     const w0 = 11 + rnd() * 8
     const d0 = 11 + rnd() * 8
     const top = 135 - (z + 2) * tanT + 42          // crosses the tilted plane + pokes through
     tower(x, z, w0, d0, top, pick())
-    holes.push([x, (z + 2) / cosT, w0 * 0.8 + 4])  // exact tear in lower-plane local space
+    holes.push([x, (z + 2) / cosT, w0 * 0.8 + 4])  // tear flush against the tower
   }
 
   // Dense filler skyline — shorter, varied, kept below the plane.

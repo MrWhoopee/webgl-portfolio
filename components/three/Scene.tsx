@@ -18,9 +18,7 @@ export default function Scene() {
         dpr={DPR}
         style={{ background: '#060112' }}
       >
-        {/* Only fog-enabled materials (the GLB city) breathe this haze; the
-            custom-shader scenes and the fog={false} core room ignore it. */}
-        <fog attach="fog" args={['#060112', 80, 360]} />
+        {/* No scene fog — atmosphere comes only from the custom GroundFog layers. */}
         <ambientLight intensity={0.03} />
 
         {/* Vertical descent (hero lives in its own canvas, SynthwaveHero):
