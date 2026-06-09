@@ -560,10 +560,11 @@ function CameraRig() {
     base.current.x += (pointer.x * 22 - base.current.x) * 0.03
     base.current.y += (pointer.y * 14 - base.current.y) * 0.03
     const tb = turbulence(t) * arrivalFade(t)   // shake dies as we drop out of warp
-    // smooth multi-sine sway — energetic toward arrival but never jerky
-    const jx = (Math.sin(t * 9.0) + Math.sin(t * 5.3) * 0.7) * tb * 9
-    const jy = (Math.sin(t * 7.7) + Math.sin(t * 4.1) * 0.7) * tb * 9
-    const jr = Math.sin(t * 6.2) * tb * 0.06
+    // multi-sine sway with a faster jitter layer — snappier toward arrival but
+    // still continuous (no hard jerks)
+    const jx = (Math.sin(t * 16.0) + Math.sin(t * 9.3) * 0.7 + Math.sin(t * 27.0) * 0.4) * tb * 11
+    const jy = (Math.sin(t * 13.7) + Math.sin(t * 7.1) * 0.7 + Math.sin(t * 23.0) * 0.4) * tb * 11
+    const jr = Math.sin(t * 11.0) * tb * 0.08
     camera.position.set(base.current.x + jx, base.current.y + jy, 0)
     camera.rotation.z = -pointer.x * 0.14 + jr
     camera.rotation.x = pointer.y * 0.07 + jy * 0.004
