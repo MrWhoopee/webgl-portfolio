@@ -35,8 +35,8 @@
 
 /* ── Volume popup: panel snaps in, segments cascade up like a load ──── */
 @keyframes volPopIn {
-  from { opacity: 0; transform: translate(-50%, 6px); }
-  to   { opacity: 1; transform: translate(-50%, 0); }
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 .vol-pop { animation: volPopIn 0.16s ease-out both; }
 /* Chunky stepped reveal = "decoding" feel; staggered per-segment via inline delay */

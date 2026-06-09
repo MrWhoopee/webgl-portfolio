@@ -242,7 +242,7 @@ export default function AudioManager() {
 
           {volOpen && (
             <div
-              className="vol-pop absolute bottom-full left-1/2 mb-3 flex w-9 -translate-x-1/2 flex-col items-center gap-1.5 rounded-none border py-2.5 backdrop-blur-md"
+              className="vol-pop absolute bottom-full left-0 mb-2 flex w-9 flex-col items-center gap-1.5 rounded-none border py-2.5 backdrop-blur-md"
               style={{ borderColor: '#ff007f66', background: 'rgba(10,3,18,0.85)', boxShadow: '0 0 22px #ff007f44' }}
             >
               <span
