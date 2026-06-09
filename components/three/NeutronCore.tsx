@@ -205,23 +205,9 @@ export default function NeutronCore() {
       ray.setFromCamera(ndc, camera)
       if (ray.ray.intersectsSphere(sphere)) coreClick()
     }
-    const onMove = (e: PointerEvent) => {
-      if (!root.current?.visible || eggState.phase !== 'idle') {
-        document.body.style.cursor = ''
-        return
-      }
-      const rect = gl.domElement.getBoundingClientRect()
-      ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1
-      ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1
-      ray.setFromCamera(ndc, camera)
-      document.body.style.cursor = ray.ray.intersectsSphere(sphere) ? 'pointer' : ''
-    }
     window.addEventListener('pointerdown', onDown)
-    window.addEventListener('pointermove', onMove)
     return () => {
       window.removeEventListener('pointerdown', onDown)
-      window.removeEventListener('pointermove', onMove)
-      document.body.style.cursor = ''
     }
   }, [camera, gl])
 
