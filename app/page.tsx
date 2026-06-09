@@ -2,6 +2,7 @@ import SceneLoader from '@/components/three/SceneLoader'
 import SecretLayer from '@/components/SecretLayer'
 import Navbar from '@/components/Navbar'
 import AudioManager from '@/components/AudioManager'
+import EntryGate from '@/components/EntryGate'
 import TerminalCode from '@/components/TerminalCode'
 import SynthwaveHero from '@/components/sections/SynthwaveHero'
 import AboutSection from '@/components/sections/AboutSection'
@@ -11,6 +12,7 @@ import ContactSection from '@/components/sections/ContactSection'
 export default function Home() {
   return (
     <>
+      <EntryGate />
       <SceneLoader />
       <SecretLayer />
       <Navbar />

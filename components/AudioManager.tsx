@@ -64,18 +64,21 @@ export default function AudioManager() {
 
   const setPlay = (v: boolean) => { playingRef.current = v; audioState.playing = v; setPlaying(v) }
 
-  // Autoplay; if blocked, resume on the first pointer gesture.
+  // Autoplay; if blocked, resume on the entry gate (or first gesture). Kept
+  // synchronous so play()/resume() run inside the gesture — Safari revokes the
+  // autoplay token after an await.
   useEffect(() => {
-    const start = async () => {
+    const start = () => {
       build()
-      await ctxRef.current?.resume()
-      await synthRef.current?.play()
-      setPlay(true)
+      ctxRef.current?.resume()
+      synthRef.current?.play().then(() => setPlay(true)).catch(() => {})
     }
-    start().catch(() => {
-      const onFirst = () => { start().catch(() => {}); document.removeEventListener('pointerdown', onFirst) }
-      document.addEventListener('pointerdown', onFirst, { once: true })
-    })
+    audioState.start = start
+    start() // try immediately; silently fails until the gate's click arrives
+    const evts = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const
+    const onFirst = () => { start(); evts.forEach((e) => document.removeEventListener(e, onFirst)) }
+    evts.forEach((e) => document.addEventListener(e, onFirst, { once: true }))
+    return () => { evts.forEach((e) => document.removeEventListener(e, onFirst)); audioState.start = null }
   }, [])
 
   // Crossfade by scroll; lazily start/stop the cyber track to save decoding.
