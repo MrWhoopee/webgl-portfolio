@@ -39,8 +39,10 @@ export default function SecretLayer() {
       return () => cancelAnimationFrame(id)
     }
     if (phase === 'warp') {
-      const id = requestAnimationFrame(() => { setDur(0.9); setFlash(0) })   // fade reveals the jump
-      return () => cancelAnimationFrame(id)
+      // hold the white a beat into the flight, then fade it out slowly so the
+      // jump is already underway as it clears
+      const id = window.setTimeout(() => { setDur(1.8); setFlash(0) }, 450)
+      return () => clearTimeout(id)
     }
     if (phase === 'galaxy') {
       // drop-out punch: a fast bright flash, then a longer fade into the galaxy

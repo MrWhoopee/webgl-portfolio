@@ -555,28 +555,19 @@ function Cosmos() {
 function CameraRig() {
   const { camera, pointer } = useThree()
   const base = useRef({ x: 0, y: 0 })
-  // discrete jolt that snaps to a fresh random offset every few ms → harsh, jerky
-  // shake (no smooth sine), re-rolled on a timer.
-  const jolt = useRef({ x: 0, y: 0, r: 0, next: 0 })
   useFrame(() => {
     const t = elapsed()
     base.current.x += (pointer.x * 22 - base.current.x) * 0.03
     base.current.y += (pointer.y * 14 - base.current.y) * 0.03
     const tb = turbulence(t) * arrivalFade(t)   // shake dies as we drop out of warp
-    if (tb > 0.001 && t >= jolt.current.next) {
-      jolt.current.x = Math.random() * 2 - 1
-      jolt.current.y = Math.random() * 2 - 1
-      jolt.current.r = Math.random() * 2 - 1
-      jolt.current.next = t + 0.03 + Math.random() * 0.05   // snap to a new pose every 30–80ms
-    }
-    const amp = tb * tb * 22                                 // grows fast toward arrival
-    const jx = jolt.current.x * amp
-    const jy = jolt.current.y * amp
-    const jr = jolt.current.r * tb * 0.12
+    // smooth multi-sine sway — energetic toward arrival but never jerky
+    const jx = (Math.sin(t * 9.0) + Math.sin(t * 5.3) * 0.7) * tb * 9
+    const jy = (Math.sin(t * 7.7) + Math.sin(t * 4.1) * 0.7) * tb * 9
+    const jr = Math.sin(t * 6.2) * tb * 0.06
     camera.position.set(base.current.x + jx, base.current.y + jy, 0)
     camera.rotation.z = -pointer.x * 0.14 + jr
-    camera.rotation.x = pointer.y * 0.07 + jolt.current.y * tb * 0.05
-    camera.rotation.y = -pointer.x * 0.07 + jolt.current.x * tb * 0.04
+    camera.rotation.x = pointer.y * 0.07 + jy * 0.004
+    camera.rotation.y = -pointer.x * 0.07
   })
   return null
 }
