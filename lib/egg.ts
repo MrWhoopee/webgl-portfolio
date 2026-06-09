@@ -16,7 +16,7 @@ export type EggPhase =
   | 'warp'       // hurtling through space to the soundtrack
   | 'galaxy'     // arrival: the Milky Way revealed
 
-export const CLICKS_BLOW = 50        // clicks to cycle the core through its colours + detonate
+export const CLICKS_BLOW = 80        // clicks to cycle the core through its colours + detonate
 export const EXPLODE_HOLD_MS = 2200  // hold on the detonation before the warp/track start
 export const WARP_SECONDS = 59       // length of the warp jump (then we drop out)
 

@@ -16,10 +16,12 @@ type Props = {
 
 export default function DecodeText({ text, as: Tag = 'span', className, style, delay = 0 }: Props) {
   const ref = useRef<HTMLElement>(null)
+  const fxRef = useRef<HTMLSpanElement>(null)
 
   useEffect(() => {
-    const el = ref.current
-    if (!el) return
+    const root = ref.current
+    const el = fxRef.current
+    if (!root || !el) return
     const rand = () => CHARS[(Math.random() * CHARS.length) | 0]
     const scrambled = () => text.split('').map((c) => (c === ' ' ? ' ' : rand())).join('')
     el.textContent = scrambled()
@@ -48,7 +50,7 @@ export default function DecodeText({ text, as: Tag = 'span', className, style, d
         el.textContent = scrambled()
       }
     }, { threshold: 0.25 })
-    io.observe(el)
+    io.observe(root)
 
     return () => { io.disconnect(); if (interval) clearInterval(interval); if (timer) clearTimeout(timer) }
   }, [text, delay])
@@ -59,5 +61,16 @@ export default function DecodeText({ text, as: Tag = 'span', className, style, d
     style?: React.CSSProperties
     children?: React.ReactNode
   }>
-  return <Comp ref={ref} className={className} style={style}>{text}</Comp>
+  // Real text (invisible) reserves the final width so the scramble overlay can
+  // never reflow the layout on narrow/mobile containers.
+  return (
+    <Comp
+      ref={ref}
+      className={className}
+      style={{ position: 'relative', display: Tag === 'span' ? 'inline-block' : undefined, ...style }}
+    >
+      <span style={{ visibility: 'hidden' }}>{text}</span>
+      <span ref={fxRef} aria-hidden style={{ position: 'absolute', inset: 0 }} />
+    </Comp>
+  )
 }

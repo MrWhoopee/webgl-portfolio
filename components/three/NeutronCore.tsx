@@ -32,12 +32,12 @@ float noise(vec3 p){
 }
 float fbm(vec3 p){ float s=0.0, a=0.5; for(int i=0;i<FBM;i++){ s+=a*noise(p); p*=2.03; a*=0.5; } return s; }
 `
-/* Easter-egg heat ramp: yellow → orange → red, spread across all 50 clicks. */
+/* Easter-egg heat ramp: yellow → orange → red → deep blackish red, over all 80 clicks. */
 const heatGlsl = /* glsl */`
 vec3 heatColor(float h){
-  return h < 0.5
-    ? mix(vec3(1.0,0.88,0.25), vec3(1.0,0.45,0.05), h*2.0)        // yellow → orange
-    : mix(vec3(1.0,0.45,0.05), vec3(1.0,0.06,0.0), (h-0.5)*2.0);  // orange → red
+  if (h < 0.45) return mix(vec3(1.0,0.88,0.25), vec3(1.0,0.45,0.05), h/0.45);        // yellow → orange
+  if (h < 0.72) return mix(vec3(1.0,0.45,0.05), vec3(1.0,0.06,0.0), (h-0.45)/0.27);  // orange → red
+  return mix(vec3(1.0,0.06,0.0), vec3(0.30,0.0,0.015), (h-0.72)/0.28);               // red → deep blackish red
 }
 `
 const coreVert = /* glsl */`
@@ -111,7 +111,7 @@ void main() {
   warmCol += warm * filaments * 1.3;
   warmCol += warm * fres;
   warmCol += warm * samp * (0.5 + uLevel) * 1.5;
-  col = mix(col, warmCol, smoothstep(0.0, 0.12, uHeat));      // commit to the heat colour quickly
+  col = mix(col, warmCol, smoothstep(0.0, 0.30, uHeat));      // ease blue → yellow over the first clicks
 
   col *= uOpacity * (0.38 + uHeat * 0.45);                    // brighter as it cycles toward detonation
   gl_FragColor = vec4(col, 1.0);
@@ -132,7 +132,7 @@ void main() {
   // filaments streaming away from the core (noise advected radially outward)
   float s = fbm(vDir * 5.0 - vec3(0.0, 0.0, uTime * 0.5) + fbm(vDir * 2.0 + uTime * 0.2));
   float streak = smoothstep(0.48, 0.7, s);
-  vec3 base = mix(vec3(0.14, 0.45, 1.0), heatColor(uHeat), smoothstep(0.0, 0.12, uHeat));
+  vec3 base = mix(vec3(0.14, 0.45, 1.0), heatColor(uHeat), smoothstep(0.0, 0.30, uHeat));
   vec3 col = base * rim * (0.5 + streak * 1.8);
   gl_FragColor = vec4(col * 0.55, rim * uOpacity * (0.4 + streak * 0.7) * 0.6);
 }
