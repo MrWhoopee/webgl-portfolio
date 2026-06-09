@@ -152,6 +152,19 @@ export default function AudioManager() {
     }
   }), [volume])
 
+  // Secret scene's track finished → return the whole site to its pristine initial
+  // state. Every easter-egg lock lives in memory, so a reload at the top wipes
+  // them all (same path as the manual "back to reality" button).
+  const returnToReality = () => {
+    if (!isLocked()) return
+    fadeMaster(0, 0.5)
+    window.setTimeout(() => {
+      try { history.scrollRestoration = 'manual' } catch {}
+      window.scrollTo(0, 0)
+      window.location.reload()
+    }, 500)
+  }
+
   const toggle = () => {
     if (playingRef.current) {
       setPlay(false)             // visuals begin their gentle fade-out at once
@@ -192,7 +205,7 @@ export default function AudioManager() {
     <>
       <audio ref={synthRef} src="/audio/synthwave-track.mp3" loop preload="auto" />
       <audio ref={cyberRef} src="/audio/cyber-city.mp3" loop preload="auto" />
-      <audio ref={warpRef} src="/audio/starfall-warpath.mp3" loop preload="auto" />
+      <audio ref={warpRef} src="/audio/starfall-warpath.mp3" preload="auto" onEnded={returnToReality} />
 
       {!locked && (
       <div
