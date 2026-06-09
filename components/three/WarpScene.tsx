@@ -13,19 +13,24 @@ import { LOW, DPR } from '@/lib/quality'
    rides the starfall-warpath track (eggState.warpElapsed), wall-clock fallback. */
 
 const DEPTH = 1600
+// The quotes finish fading out ~here; keep the flight calm & readable until then,
+// then slam the throttle for the final dash into the galaxy.
+const CRUISE_END = 51
+const CRUISE = 0.6
 
 function elapsed() {
   return eggState.warpElapsed > 0.05
     ? eggState.warpElapsed
     : (performance.now() - eggState.warpAt) / 1000
 }
-// warp stretch: original gradual spin-up over the first 10s (→1), then keep
-// pushing PAST full speed, accelerating to ~2.8× by arrival — no slow-down,
-// we just burst straight out into the galaxy.
+// warp stretch: spin up to a steady, readable cruise, hold it while the quotes
+// run, then accelerate HARD past full speed for the climax — no slow-down, we
+// just burst straight out into the galaxy.
 function warpLevel(t: number) {
-  if (t < 10) return THREE.MathUtils.smoothstep(t, 0, 10)
-  const k = THREE.MathUtils.clamp((t - 10) / (WARP_SECONDS - 10), 0, 1)
-  return 1 + k * k * 1.8
+  if (t < 10) return THREE.MathUtils.smoothstep(t, 0, 10) * CRUISE
+  if (t < CRUISE_END) return CRUISE
+  const k = THREE.MathUtils.clamp((t - CRUISE_END) / (WARP_SECONDS - CRUISE_END), 0, 1)
+  return CRUISE + k * k * (3.2 - CRUISE)
 }
 // 1 while travelling, eases to 0 over 1.2s after arrival (not a hard cut).
 function arrivalFade(t: number) {
@@ -36,11 +41,11 @@ function arrivalFade(t: number) {
 function density(t: number) {
   return THREE.MathUtils.clamp((t - 10) / 40, 0, 1)
 }
-// camera turbulence: still until 25s, light build, violent at the very end.
+// camera turbulence: dead calm while the quotes run (readable), then ramps to a
+// violent shake over the final dash.
 function turbulence(t: number) {
-  if (t < 25) return 0
-  if (t < WARP_SECONDS - 5) return ((t - 25) / (WARP_SECONDS - 5 - 25)) * 0.45
-  return 0.45 + Math.min(1, (t - (WARP_SECONDS - 5)) / 5) * 0.55
+  if (t < CRUISE_END) return 0
+  return THREE.MathUtils.clamp((t - CRUISE_END) / (WARP_SECONDS - CRUISE_END), 0, 1)
 }
 
 // Soft round glow sprite for the bright stars.
@@ -550,18 +555,28 @@ function Cosmos() {
 function CameraRig() {
   const { camera, pointer } = useThree()
   const base = useRef({ x: 0, y: 0 })
+  // discrete jolt that snaps to a fresh random offset every few ms → harsh, jerky
+  // shake (no smooth sine), re-rolled on a timer.
+  const jolt = useRef({ x: 0, y: 0, r: 0, next: 0 })
   useFrame(() => {
     const t = elapsed()
     base.current.x += (pointer.x * 22 - base.current.x) * 0.03
     base.current.y += (pointer.y * 14 - base.current.y) * 0.03
     const tb = turbulence(t) * arrivalFade(t)   // shake dies as we drop out of warp
-    const jx = (Math.sin(t * 31.0) + Math.sin(t * 17.3) * 0.7) * tb * 6
-    const jy = (Math.sin(t * 27.0) + Math.sin(t * 23.1) * 0.7) * tb * 6
-    const jr = Math.sin(t * 19.0) * tb * 0.05
+    if (tb > 0.001 && t >= jolt.current.next) {
+      jolt.current.x = Math.random() * 2 - 1
+      jolt.current.y = Math.random() * 2 - 1
+      jolt.current.r = Math.random() * 2 - 1
+      jolt.current.next = t + 0.03 + Math.random() * 0.05   // snap to a new pose every 30–80ms
+    }
+    const amp = tb * tb * 22                                 // grows fast toward arrival
+    const jx = jolt.current.x * amp
+    const jy = jolt.current.y * amp
+    const jr = jolt.current.r * tb * 0.12
     camera.position.set(base.current.x + jx, base.current.y + jy, 0)
     camera.rotation.z = -pointer.x * 0.14 + jr
-    camera.rotation.x = pointer.y * 0.07 + jy * 0.004
-    camera.rotation.y = -pointer.x * 0.07
+    camera.rotation.x = pointer.y * 0.07 + jolt.current.y * tb * 0.05
+    camera.rotation.y = -pointer.x * 0.07 + jolt.current.x * tb * 0.04
   })
   return null
 }
