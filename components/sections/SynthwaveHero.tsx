@@ -118,7 +118,7 @@ export default function SynthwaveHero() {
 
       {/* Scroll hint — centered along the bottom of the hero, neon-lit */}
       <div
-        className="pointer-events-none absolute bottom-24 left-1/2 z-10 flex -translate-x-1/2 items-center gap-3 whitespace-nowrap text-base md:bottom-10"
+        className="pointer-events-none absolute bottom-32 left-1/2 z-10 flex -translate-x-1/2 items-center gap-3 whitespace-nowrap text-base md:bottom-10"
         style={{ fontFamily: 'Space Mono, monospace', ...glow('#00f3ff') }}
       >
         <span>scroll to explore</span>

@@ -1,4 +1,5 @@
 import DecodeText from "@/components/DecodeText";
+import CoreStatus from "@/components/CoreStatus";
 
 const LINKS = [
   { label: "GitHub", href: "https://github.com/MrWhoopee" },
@@ -59,6 +60,10 @@ export default function ContactSection() {
           ))}
         </div>
       </div>
+
+      {/* Core status plaque — flows below the text on phones; pinned under the
+          core on desktop (md:fixed pulls it out of this flow). */}
+      <CoreStatus />
 
       <p
         className="absolute bottom-8 max-w-[60%] text-xs text-slate-600 md:max-w-none"
