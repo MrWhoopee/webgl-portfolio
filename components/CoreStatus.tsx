@@ -89,7 +89,7 @@ export default function CoreStatus() {
 
   return (
     <div
-      className="pointer-events-none relative z-40 mx-auto mt-8 w-max max-w-[88vw] self-center md:fixed md:bottom-10 md:left-1/2 md:top-auto md:mx-0 md:mt-0 md:-translate-x-1/2"
+      className="pointer-events-none relative z-40 mx-auto mt-8 w-max max-w-[88vw] self-center md:absolute md:bottom-10 md:left-1/2 md:top-auto md:mx-0 md:mt-0 md:-translate-x-1/2"
       style={{ opacity: visible ? 1 : 0, transition: 'opacity 0.5s ease' }}
     >
       <div
