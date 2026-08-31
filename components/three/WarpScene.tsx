@@ -6,6 +6,7 @@ import * as THREE from 'three'
 import { eggState, WARP_SECONDS, arrive } from '@/lib/egg'
 import AdaptiveDpr from './AdaptiveDpr'
 import { LOW, DPR } from '@/lib/quality'
+import { useInteractionPaused } from '@/lib/interaction'
 
 /* The hidden scene. We burst out of the exploding core into a warp jump that
    builds over ~59s: empty for the first 10s, then the odd star, then a thickening
@@ -583,8 +584,11 @@ function ArrivalGate() {
 }
 
 export default function WarpScene() {
+  // Pause the render loop while resizing/zooming — see lib/interaction.
+  const paused = useInteractionPaused()
   return (
     <Canvas
+      frameloop={paused ? 'never' : 'always'}
       camera={{ position: [0, 0, 0], fov: 80, near: 0.1, far: 4000 }}
       gl={{ antialias: !LOW, powerPreference: 'high-performance' }}
       dpr={DPR}

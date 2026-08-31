@@ -8,6 +8,7 @@ import HoverParticles from '@/components/three/HoverParticles'
 import HeroSun from '@/components/three/HeroSun'
 import AdaptiveDpr from '@/components/three/AdaptiveDpr'
 import { onScroll } from '@/lib/scroll'
+import { useInteractionPaused } from '@/lib/interaction'
 import { LOW, DPR } from '@/lib/quality'
 import { useIsPhone } from '@/lib/useIsPhone'
 
@@ -47,13 +48,15 @@ export default function SynthwaveHero() {
   // second bloom pipeline + highway + particles behind the city / core scenes.
   const [active, setActive] = useState(true)
   useEffect(() => onScroll((p) => setActive(p < 0.28)), [])
+  // Also freeze while resizing/zooming — see lib/interaction.
+  const paused = useInteractionPaused()
 
   return (
     <section className="relative h-screen w-full overflow-hidden">
       {/* 3D background — audio is owned by AudioManager and shared via audioState */}
       <div className="absolute inset-0">
         <Canvas
-          frameloop={active ? 'always' : 'never'}
+          frameloop={active && !paused ? 'always' : 'never'}
           camera={{ position: [0, 4, 14], fov: 55, near: 0.1, far: 200 }}
           gl={{ antialias: !LOW, powerPreference: 'high-performance' }}
           style={{ background: '#060112' }}
