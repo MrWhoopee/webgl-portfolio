@@ -58,6 +58,9 @@ export default function SynthwaveHero() {
           gl={{ antialias: !LOW, powerPreference: 'high-performance' }}
           style={{ background: '#060112' }}
           dpr={DPR}
+          // Debounce reallocation so a continuous resize/zoom only rebuilds the
+          // framebuffer + postprocessing targets once the gesture settles.
+          resize={{ debounce: 200 }}
         >
           <AdaptiveDpr />
           <fog attach="fog" args={['#060112', 16, 52]} />

@@ -588,6 +588,9 @@ export default function WarpScene() {
       camera={{ position: [0, 0, 0], fov: 80, near: 0.1, far: 4000 }}
       gl={{ antialias: !LOW, powerPreference: 'high-performance' }}
       dpr={DPR}
+      // Debounce reallocation so a continuous resize/zoom only rebuilds the
+      // framebuffer + postprocessing targets once the gesture settles.
+      resize={{ debounce: 200 }}
       style={{ background: '#01010a' }}
     >
       <AdaptiveDpr />

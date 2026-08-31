@@ -6,18 +6,40 @@ import { dprCap } from '@/lib/quality'
 // Keeps the render resolution pinned to the pixel budget (see lib/quality.ts) as
 // the window changes size. Without this the dpr cap is frozen at the value from
 // the first paint, so growing the window — or zooming out, which enlarges the CSS
-// viewport — would balloon the framebuffer and the postprocessing render targets
-// again. Recomputing on resize + devicePixelRatio change holds the framebuffer at
-// a stable size on any monitor and at any zoom level.
+// viewport — would balloon the framebuffer and the postprocessing render targets.
+//
+// Reallocating those GPU render targets is the single most expensive thing here,
+// so we must NOT do it on every resize/zoom tick: a continuous browser zoom fires
+// a stream of resize + devicePixelRatio events, and reacting to each one would
+// reallocate the whole framebuffer + bloom mip chain every frame and stutter hard.
+// Instead we wait for the gesture to settle, then apply once — and skip the call
+// entirely when the effective dpr hasn't actually changed.
+const SETTLE_MS = 200
+
 export default function AdaptiveDpr() {
   const setDpr = useThree((s) => s.setDpr)
 
   useEffect(() => {
-    let raf = 0
-    const apply = () => {
-      cancelAnimationFrame(raf)
-      // Coalesce bursts of resize events into a single dpr update per frame.
-      raf = requestAnimationFrame(() => setDpr(dprCap()))
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let lastEff = -1
+
+    // Resolve the budget tuple against the current devicePixelRatio the same way
+    // R3F would, so we can dedupe on the actual scalar that would be applied.
+    const effectiveDpr = () => {
+      const [min, max] = dprCap()
+      return Math.min(Math.max(min, window.devicePixelRatio), max)
+    }
+
+    const commit = () => {
+      const eff = effectiveDpr()
+      if (eff === lastEff) return // no-op → skip the render-target reallocation
+      lastEff = eff
+      setDpr(eff)
+    }
+
+    const schedule = () => {
+      clearTimeout(timer)
+      timer = setTimeout(commit, SETTLE_MS)
     }
 
     // devicePixelRatio changes (browser zoom, dragging between monitors) don't
@@ -25,7 +47,7 @@ export default function AdaptiveDpr() {
     // re-subscribe after each change since the matched value moves with it.
     let mql: MediaQueryList | null = null
     const onDprChange = () => {
-      apply()
+      schedule()
       watchDpr()
     }
     const watchDpr = () => {
@@ -34,13 +56,13 @@ export default function AdaptiveDpr() {
       mql.addEventListener('change', onDprChange)
     }
 
-    apply()
+    commit() // apply the initial budget immediately — no gesture in progress
     watchDpr()
-    window.addEventListener('resize', apply)
+    window.addEventListener('resize', schedule)
 
     return () => {
-      cancelAnimationFrame(raf)
-      window.removeEventListener('resize', apply)
+      clearTimeout(timer)
+      window.removeEventListener('resize', schedule)
       mql?.removeEventListener('change', onDprChange)
     }
   }, [setDpr])

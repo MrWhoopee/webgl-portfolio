@@ -17,6 +17,9 @@ export default function Scene() {
         camera={{ position: [0, 18, 35], fov: 65, near: 0.1, far: 900 }}
         gl={{ antialias: !LOW, powerPreference: 'high-performance' }}
         dpr={DPR}
+        // Debounce reallocation so a continuous resize/zoom only rebuilds the
+        // framebuffer + postprocessing targets once the gesture settles.
+        resize={{ debounce: 200 }}
         style={{ background: '#060112' }}
       >
         <AdaptiveDpr />
