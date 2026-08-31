@@ -6,6 +6,7 @@ import * as THREE from 'three'
 import InfiniteHighway from '@/components/three/InfiniteHighway'
 import HoverParticles from '@/components/three/HoverParticles'
 import HeroSun from '@/components/three/HeroSun'
+import AdaptiveDpr from '@/components/three/AdaptiveDpr'
 import { onScroll } from '@/lib/scroll'
 import { LOW, DPR } from '@/lib/quality'
 import { useIsPhone } from '@/lib/useIsPhone'
@@ -58,6 +59,7 @@ export default function SynthwaveHero() {
           style={{ background: '#060112' }}
           dpr={DPR}
         >
+          <AdaptiveDpr />
           <fog attach="fog" args={['#060112', 16, 52]} />
           <HeroSun />
           <InfiniteHighway glow="#ff007f" phone={isPhone} />

@@ -4,6 +4,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import { eggState, WARP_SECONDS, arrive } from '@/lib/egg'
+import AdaptiveDpr from './AdaptiveDpr'
 import { LOW, DPR } from '@/lib/quality'
 
 /* The hidden scene. We burst out of the exploding core into a warp jump that
@@ -589,6 +590,7 @@ export default function WarpScene() {
       dpr={DPR}
       style={{ background: '#01010a' }}
     >
+      <AdaptiveDpr />
       <WarpStars />
       <BrightStars />
       <NebulaField />

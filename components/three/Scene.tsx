@@ -7,6 +7,7 @@ import SectionPlanes from './SectionPlanes'
 import CyberCity from './CyberCity'
 import NeutronCore from './NeutronCore'
 import CameraRig from './CameraRig'
+import AdaptiveDpr from './AdaptiveDpr'
 import { LOW, DPR } from '@/lib/quality'
 
 export default function Scene() {
@@ -18,6 +19,8 @@ export default function Scene() {
         dpr={DPR}
         style={{ background: '#060112' }}
       >
+        <AdaptiveDpr />
+
         {/* No scene fog — atmosphere comes only from the custom GroundFog layers. */}
         <ambientLight intensity={0.03} />
 

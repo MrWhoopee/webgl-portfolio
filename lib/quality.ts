@@ -31,7 +31,36 @@ export const PHONE =
 // quadruples fragment work for no visible gain.
 // Retina MacBooks report 2, which quadruples bloom/fill work for little visible
 // gain under heavy postprocessing — cap it so the descent stays smooth.
-export const DPR: [number, number] = LOW ? [1, 1.25] : [1, 1.6]
+//
+// An [min, max] tuple only clamps devicePixelRatio — it ignores how physically
+// large the window is. On a 4K/ultrawide monitor the CSS canvas is huge, so the
+// framebuffer (width × height × dpr²) balloons and the postprocessing chain
+// (EffectComposer + Bloom mip pyramid) allocates several full-res render targets
+// → the scene eats a lot of VRAM for no visible gain. So instead of a fixed cap
+// we bound the *total pixel count*: the effective max dpr shrinks as the window
+// grows, keeping the framebuffer roughly constant on any screen size.
+export function dprCap(): [number, number] {
+  const baseMax = LOW ? 1.25 : 1.6
+  if (typeof window === 'undefined') return [1, baseMax]
+
+  // Target framebuffer size, in rendered pixels. ~1080p rendered at baseMax —
+  // the point past which extra resolution stops being visible under bloom.
+  const budget = LOW ? 2_600_000 : 5_300_000
+  const cssPixels = window.innerWidth * window.innerHeight
+  // dpr that spends exactly the budget on this window; may drop below 1 on very
+  // large screens (R3F renders smaller and CSS-upscales — invisible under bloom).
+  const fromBudget = Math.sqrt(budget / cssPixels)
+
+  const max = Math.min(baseMax, fromBudget)
+  // Never let min exceed max, or R3F clamps devicePixelRatio upward past budget.
+  return [Math.min(1, max), max]
+}
+
+// Initial render-resolution cap from the first window size. Detected on the
+// client; SSR falls back to the base cap and R3F recomputes on mount. Once
+// mounted, <AdaptiveDpr /> recomputes this on resize / zoom so the framebuffer
+// stays at the budget size instead of ballooning when the window grows.
+export const DPR: [number, number] = dprCap()
 
 // fbm octaves baked into shaders
 export const FBM = LOW ? 3 : 5
