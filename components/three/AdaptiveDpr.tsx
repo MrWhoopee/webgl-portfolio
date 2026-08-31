@@ -1,19 +1,16 @@
 'use client'
 import { useEffect } from 'react'
 import { useThree } from '@react-three/fiber'
-import { dprCap } from '@/lib/quality'
+import { targetDpr } from '@/lib/quality'
 
-// Keeps the render resolution pinned to the pixel budget (see lib/quality.ts) as
-// the window changes size. Without this the dpr cap is frozen at the value from
-// the first paint, so growing the window — or zooming out, which enlarges the CSS
-// viewport — would balloon the framebuffer and the postprocessing render targets.
+// Keeps the render dpr in sync with the pixel budget (see lib/quality.ts) as the
+// window changes size or zoom. targetDpr() is built so the framebuffer stays a
+// constant physical size across zoom levels, so this normally re-applies the same
+// canvas dimensions and the postprocessing render targets are not reallocated.
 //
-// Reallocating those GPU render targets is the single most expensive thing here,
-// so we must NOT do it on every resize/zoom tick: a continuous browser zoom fires
-// a stream of resize + devicePixelRatio events, and reacting to each one would
-// reallocate the whole framebuffer + bloom mip chain every frame and stutter hard.
-// Instead we wait for the gesture to settle, then apply once — and skip the call
-// entirely when the effective dpr hasn't actually changed.
+// We still debounce: a real drag-resize does change the framebuffer, and firing a
+// reallocation on every intermediate size would stutter. Applying once the
+// gesture settles (and skipping no-op dpr changes) keeps it smooth.
 const SETTLE_MS = 200
 
 export default function AdaptiveDpr() {
@@ -21,20 +18,13 @@ export default function AdaptiveDpr() {
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
-    let lastEff = -1
-
-    // Resolve the budget tuple against the current devicePixelRatio the same way
-    // R3F would, so we can dedupe on the actual scalar that would be applied.
-    const effectiveDpr = () => {
-      const [min, max] = dprCap()
-      return Math.min(Math.max(min, window.devicePixelRatio), max)
-    }
+    let last = -1
 
     const commit = () => {
-      const eff = effectiveDpr()
-      if (eff === lastEff) return // no-op → skip the render-target reallocation
-      lastEff = eff
-      setDpr(eff)
+      const dpr = targetDpr()
+      if (dpr === last) return
+      last = dpr
+      setDpr(dpr)
     }
 
     const schedule = () => {
