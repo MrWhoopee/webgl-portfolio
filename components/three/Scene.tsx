@@ -8,8 +8,8 @@ import SectionPlanes from './SectionPlanes'
 import CyberCity from './CyberCity'
 import NeutronCore from './NeutronCore'
 import CameraRig from './CameraRig'
-import AdaptiveDpr from './AdaptiveDpr'
-import { LOW, DPR } from '@/lib/quality'
+import { LOW } from '@/lib/quality'
+import { useBudgetDpr } from '@/lib/useBudgetDpr'
 import { onScroll } from '@/lib/scroll'
 import { useInteractionPaused } from '@/lib/interaction'
 
@@ -17,6 +17,7 @@ export default function Scene() {
   // Pause the render loop while the browser is being resized/zoomed so the GPU is
   // free for the compositor to scale the canvas smoothly instead of stuttering.
   const paused = useInteractionPaused()
+  const dpr = useBudgetDpr()
   // The opaque hero canvas fully covers this background scene at the very top, so
   // rendering both means two full-screen postprocessing pipelines at once — that's
   // what pins the top of the page to ~30fps (and makes zooming there stutter).
@@ -30,13 +31,12 @@ export default function Scene() {
         frameloop={visible && !paused ? 'always' : 'never'}
         camera={{ position: [0, 18, 35], fov: 65, near: 0.1, far: 900 }}
         gl={{ antialias: !LOW, powerPreference: 'high-performance' }}
-        dpr={DPR}
-        // Debounce reallocation so a continuous resize/zoom only rebuilds the
-        // framebuffer + postprocessing targets once the gesture settles.
-        resize={{ debounce: 200 }}
+        // While hidden, render at a tiny dpr so the offscreen buffer can't balloon
+        // when the layout viewport grows on zoom-out; jump to the budget dpr once
+        // it's actually shown.
+        dpr={visible ? dpr : 0.3}
         style={{ background: '#060112' }}
       >
-        <AdaptiveDpr />
 
         {/* No scene fog — atmosphere comes only from the custom GroundFog layers. */}
         <ambientLight intensity={0.03} />

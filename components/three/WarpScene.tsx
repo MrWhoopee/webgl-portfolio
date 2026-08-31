@@ -4,8 +4,8 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import { eggState, WARP_SECONDS, arrive } from '@/lib/egg'
-import AdaptiveDpr from './AdaptiveDpr'
-import { LOW, DPR } from '@/lib/quality'
+import { LOW } from '@/lib/quality'
+import { useBudgetDpr } from '@/lib/useBudgetDpr'
 import { useInteractionPaused } from '@/lib/interaction'
 
 /* The hidden scene. We burst out of the exploding core into a warp jump that
@@ -586,18 +586,15 @@ function ArrivalGate() {
 export default function WarpScene() {
   // Pause the render loop while resizing/zooming — see lib/interaction.
   const paused = useInteractionPaused()
+  const dpr = useBudgetDpr()
   return (
     <Canvas
       frameloop={paused ? 'never' : 'always'}
       camera={{ position: [0, 0, 0], fov: 80, near: 0.1, far: 4000 }}
       gl={{ antialias: !LOW, powerPreference: 'high-performance' }}
-      dpr={DPR}
-      // Debounce reallocation so a continuous resize/zoom only rebuilds the
-      // framebuffer + postprocessing targets once the gesture settles.
-      resize={{ debounce: 200 }}
+      dpr={dpr}
       style={{ background: '#01010a' }}
     >
-      <AdaptiveDpr />
       <WarpStars />
       <BrightStars />
       <NebulaField />

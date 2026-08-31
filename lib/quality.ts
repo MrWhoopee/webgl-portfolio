@@ -36,34 +36,31 @@ export const PHONE =
 // a retina laptop lands ~1.6 dpr (the sweet spot under heavy bloom).
 const BUDGET = LOW ? 2_600_000 : 3_400_000
 
-// Effective render dpr for the current window. Two goals:
+// Given the current CSS viewport size, return the render dpr that respects the
+// budget. Two goals:
 //
 //  1. VRAM: never render more than BUDGET pixels (so big monitors stay cheap).
-//  2. Zoom stability: browser zoom changes devicePixelRatio *and* the CSS window
-//     size together, but the window's physical pixel count is invariant. Both
-//     terms below (devicePixelRatio and sqrt(BUDGET/cssPixels)) are invariant in
-//     physical pixels, so canvas.width = cssW × dpr stays constant across zoom
-//     levels — the render targets keep their size and are never reallocated, which
-//     is what used to make zooming stutter. So NO fixed ratio ceiling on desktop.
+//  2. Zoom safety: driving this off the *measured* CSS size (see useBudgetDpr)
+//     rather than a fixed dpr cap is what keeps zoom-OUT safe — when the layout
+//     viewport balloons to thousands of px, cssPixels balloons with it and
+//     fromBudget shrinks in lockstep, so the framebuffer can never exceed BUDGET.
 //
 // Mobile keeps a hard ratio cap: phones report devicePixelRatio 2.5–3.5, which
-// quadruples fragment work for no visible gain, and pinch-zoom there is a
-// compositor zoom that never touches devicePixelRatio (so it can't reallocate).
-export function targetDpr(): number {
-  if (typeof window === 'undefined') return LOW ? 1.25 : 1.6
-
-  const cssPixels = window.innerWidth * window.innerHeight
-  const dpr = window.devicePixelRatio || 1
+// quadruples fragment work for no visible gain.
+export function targetDprFor(cssWidth: number, cssHeight: number): number {
+  const cssPixels = Math.max(1, cssWidth * cssHeight)
+  const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
   const fromBudget = Math.sqrt(BUDGET / cssPixels)
 
   if (LOW) return Math.min(1.25, dpr, fromBudget)
-  return Math.min(dpr, fromBudget)
+  // Floor at 0.5 so extreme zoom-out doesn't render an unreadably mushy frame.
+  return Math.max(0.5, Math.min(dpr, fromBudget))
 }
 
-// Initial dpr from the first window size. Detected on the client; SSR falls back
-// to the base value and R3F recomputes on mount. Once mounted, <AdaptiveDpr />
-// keeps it in sync on resize / zoom.
-export const DPR: number = targetDpr()
+export function targetDpr(): number {
+  if (typeof window === 'undefined') return LOW ? 1.25 : 1.6
+  return targetDprFor(window.innerWidth, window.innerHeight)
+}
 
 // fbm octaves baked into shaders
 export const FBM = LOW ? 3 : 5

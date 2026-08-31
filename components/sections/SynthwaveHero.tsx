@@ -6,10 +6,10 @@ import * as THREE from 'three'
 import InfiniteHighway from '@/components/three/InfiniteHighway'
 import HoverParticles from '@/components/three/HoverParticles'
 import HeroSun from '@/components/three/HeroSun'
-import AdaptiveDpr from '@/components/three/AdaptiveDpr'
 import { onScroll } from '@/lib/scroll'
 import { useInteractionPaused } from '@/lib/interaction'
-import { LOW, DPR } from '@/lib/quality'
+import { LOW } from '@/lib/quality'
+import { useBudgetDpr } from '@/lib/useBudgetDpr'
 import { useIsPhone } from '@/lib/useIsPhone'
 
 const glow = (c: string) => ({ color: c, textShadow: `0 0 8px ${c}cc, 0 0 22px ${c}66` })
@@ -50,6 +50,7 @@ export default function SynthwaveHero() {
   useEffect(() => onScroll((p) => setActive(p < 0.28)), [])
   // Also freeze while resizing/zooming — see lib/interaction.
   const paused = useInteractionPaused()
+  const dpr = useBudgetDpr()
 
   return (
     <section className="relative h-screen w-full overflow-hidden">
@@ -60,12 +61,8 @@ export default function SynthwaveHero() {
           camera={{ position: [0, 4, 14], fov: 55, near: 0.1, far: 200 }}
           gl={{ antialias: !LOW, powerPreference: 'high-performance' }}
           style={{ background: '#060112' }}
-          dpr={DPR}
-          // Debounce reallocation so a continuous resize/zoom only rebuilds the
-          // framebuffer + postprocessing targets once the gesture settles.
-          resize={{ debounce: 200 }}
+          dpr={dpr}
         >
-          <AdaptiveDpr />
           <fog attach="fog" args={['#060112', 16, 52]} />
           <HeroSun />
           <InfiniteHighway glow="#ff007f" phone={isPhone} />
