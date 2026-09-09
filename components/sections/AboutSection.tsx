@@ -20,7 +20,7 @@ export default function AboutSection() {
         </div>
 
         <div className="mt-10 grid grid-cols-3 gap-6">
-          {[['3+', 'Years of experience'], ['15+', 'Projects shipped'], ['∞', 'Lines of code']].map(([val, label]) => (
+          {[['2+', 'Years of experience'], ['15+', 'Projects shipped'], ['∞', 'Lines of code']].map(([val, label]) => (
             <div key={label}>
               <div className="text-3xl font-bold" style={{ color: '#7C3AED', fontFamily: 'Space Mono, monospace' }}>{val}</div>
               <div className="text-slate-400 text-sm mt-1">{label}</div>
