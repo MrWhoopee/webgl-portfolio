@@ -15,12 +15,12 @@ export default function AboutSection() {
         </h2>
 
         <div className="space-y-5 text-lg text-slate-300 leading-relaxed" style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.15rem' }}>
-          <DecodeText as="p" delay={380} text="I'm a full-stack developer with a passion for building products that live at the intersection of engineering and design. From scalable APIs to immersive WebGL interfaces — I care about every layer of the stack." />
-          <DecodeText as="p" delay={520} text="Currently focused on Next.js applications, 3D web experiences with React Three Fiber, and pushing the creative boundaries of what a browser can render." />
+          <DecodeText as="p" delay={380} text="I'm a full-stack developer building production web applications end to end — from database schema and APIs to the deployment pipeline that ships them. I care about every layer of the stack." />
+          <DecodeText as="p" delay={520} text="Working across Next.js, Node.js, and PostgreSQL day to day. WebGL and React Three Fiber are a creative outlet I explore in personal projects like this one." />
         </div>
 
         <div className="mt-10 grid grid-cols-3 gap-6">
-          {[['2+', 'Years of experience'], ['15+', 'Projects shipped'], ['∞', 'Lines of code']].map(([val, label]) => (
+          {[['2+', 'Years of experience'], ['10+', 'Projects shipped'], ['∞', 'Lines of code']].map(([val, label]) => (
             <div key={label}>
               <div className="text-3xl font-bold" style={{ color: '#7C3AED', fontFamily: 'Space Mono, monospace' }}>{val}</div>
               <div className="text-slate-400 text-sm mt-1">{label}</div>

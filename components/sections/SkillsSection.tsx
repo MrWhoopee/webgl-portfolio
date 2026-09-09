@@ -1,8 +1,8 @@
 const SKILLS = [
   { category: 'Frontend', items: ['Next.js', 'React', 'TypeScript', 'Tailwind CSS', 'React Three Fiber'] },
-  { category: 'Backend',  items: ['Node.js', 'PostgreSQL', 'REST APIs', 'WebSockets'] },
-  { category: '3D / WebGL', items: ['Three.js', 'GLSL Shaders', 'WebGL', 'Blender'] },
-  { category: 'Tools',    items: ['Git', 'Docker', 'Vercel', 'Figma'] },
+  { category: 'Backend',  items: ['Node.js', 'Express', 'PostgreSQL', 'Redis', 'Auth0', 'REST APIs', 'WebSockets'] },
+  { category: '3D / WebGL (side projects)', items: ['Three.js', 'GLSL Shaders', 'WebGL', 'Blender'] },
+  { category: 'Tools',    items: ['Git', 'Docker', 'GitHub Actions', 'Vercel', 'Figma'] },
 ]
 
 import DecodeText from '@/components/DecodeText'

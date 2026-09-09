@@ -4,10 +4,10 @@ import LenisProvider from '@/components/LenisProvider'
 
 export const metadata: Metadata = {
   title: 'Artemii — Full-Stack Developer',
-  description: 'Portfolio of Artemii, a full-stack developer specializing in Next.js, React Three Fiber, and modern web experiences.',
+  description: 'Portfolio of Artemii, a full-stack developer building production web applications with Next.js, Node.js and PostgreSQL.',
   openGraph: {
     title: 'Artemii — Full-Stack Developer',
-    description: 'A WebGL portfolio built with Next.js and React Three Fiber.',
+    description: 'Full-stack developer — Next.js, Node.js, PostgreSQL. Site built with React Three Fiber.',
     type: 'website',
   },
 }

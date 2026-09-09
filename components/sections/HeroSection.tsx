@@ -39,10 +39,10 @@ export default function HeroSection() {
           className="text-xl md:text-2xl font-light text-slate-300 max-w-xl leading-relaxed"
           style={{ fontFamily: 'Rajdhani, sans-serif' }}
         >
-          Building modern web experiences with{' '}
-          <span style={glow('#EC4899')}>Next.js</span>,{' '}
-          <span style={glow('#7C3AED')}>WebGL</span> and{' '}
-          <span style={glow('#EC4899')}>React Three Fiber</span>.
+          Building full-stack web applications with{' '}
+          <span style={glow('#EC4899')}>Next.js</span> and{' '}
+          <span style={glow('#7C3AED')}>Node.js</span>. WebGL and{' '}
+          <span style={glow('#EC4899')}>React Three Fiber</span> are where I play on the side.
         </p>
 
         <div
