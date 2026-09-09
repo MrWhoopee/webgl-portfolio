@@ -1,8 +1,11 @@
 const SKILLS = [
-  { category: 'Frontend', items: ['Next.js', 'React', 'TypeScript', 'Tailwind CSS', 'React Three Fiber'] },
-  { category: 'Backend',  items: ['Node.js', 'Express', 'PostgreSQL', 'Redis', 'Auth0', 'REST APIs', 'WebSockets'] },
-  { category: '3D / WebGL (side projects)', items: ['Three.js', 'GLSL Shaders', 'WebGL', 'Blender'] },
-  { category: 'Tools',    items: ['Git', 'Docker', 'GitHub Actions', 'Vercel', 'Figma'] },
+  { category: 'Frontend', items: ['Next.js', 'React', 'TypeScript', 'Tailwind CSS', 'TanStack Query', 'Zod'] },
+  { category: 'Backend',  items: ['Node.js', 'Express', 'Fastify', 'PostgreSQL', 'MongoDB', 'Redis', 'REST APIs', 'WebSockets', 'RabbitMQ'] },
+  { category: 'Auth & Security', items: ['Auth0', 'JWT', 'OAuth 2.0'] },
+  { category: 'DevOps & Cloud', items: ['Docker', 'AWS', 'Vercel', 'GitHub Actions', 'Turborepo', 'CI/CD'] },
+  { category: 'Testing & Quality', items: ['Vitest', 'ESLint', 'Swagger / OpenAPI'] },
+  { category: 'Tools', items: ['Git', 'Figma', 'Jira', 'Confluence'] },
+  { category: '3D / WebGL — side project', items: ['Three.js', 'React Three Fiber', 'GLSL Shaders', 'WebGL', 'Blender'] },
 ]
 
 import DecodeText from '@/components/DecodeText'
@@ -11,7 +14,7 @@ export default function SkillsSection() {
   return (
     <section className="min-h-screen flex flex-col justify-center px-10 md:px-24 py-24">
       <div
-        className="max-w-2xl p-[42px] md:p-[50px]"
+        className="max-w-3xl p-[42px] md:p-[50px]"
         style={{ padding: '3px', background: 'rgba(8,2,20,0.55)', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)' }}
       >
         <DecodeText as="p" text="02 / Skills" className="text-xs tracking-[0.3em] uppercase mb-6 block" style={{ color: '#7C3AED', fontFamily: 'Space Mono, monospace' }} />
