@@ -1,5 +1,6 @@
 'use client'
 import { useSyncExternalStore } from 'react'
+import { MOBILE } from '@/lib/quality'
 
 // Rendering the scene is expensive (two full-screen postprocessed canvases), so
 // while the user is resizing or zooming the browser we pause the render loop:
@@ -30,15 +31,44 @@ function poke() {
   timer = setTimeout(() => set(false), SETTLE_MS)
 }
 
+// On a phone/tablet the URL bar collapses and expands *as you scroll*, and that
+// fires both 'resize' and visualViewport 'resize' mid-scroll. Poking on those
+// froze every canvas for 250ms at a time while the user was scrolling — the scene
+// is scroll-driven, so it stalled and then snapped, which reads as a stutter.
+//
+// A chrome move only changes the viewport *height*; a real zoom always moves
+// devicePixelRatio (full-page zoom) or visualViewport.scale (pinch), and a real
+// resize moves the width. So on mobile we pause only when one of those actually
+// changed, and ignore height-only events. Desktop keeps the original behaviour.
+let lastW = 0
+let lastDpr = 0
+let lastScale = 0
+const readMetrics = (): [number, number, number] => [
+  window.innerWidth,
+  window.devicePixelRatio,
+  window.visualViewport?.scale ?? 1,
+]
+
+function onResize() {
+  if (!MOBILE) return poke()
+  const [w, dpr, scale] = readMetrics()
+  const changed = w !== lastW || dpr !== lastDpr || scale !== lastScale
+  lastW = w
+  lastDpr = dpr
+  lastScale = scale
+  if (changed) poke()
+}
+
 let installed = false
 function install() {
   if (installed || typeof window === 'undefined') return
   installed = true
-  window.addEventListener('resize', poke, { passive: true })
+  ;[lastW, lastDpr, lastScale] = readMetrics()
+  window.addEventListener('resize', onResize, { passive: true })
   // Pinch-zoom changes visualViewport.scale → fires its 'resize'. We deliberately
   // do NOT listen to visualViewport 'scroll' — the scene is scroll-driven and must
   // keep rendering while the page scrolls.
-  window.visualViewport?.addEventListener('resize', poke, { passive: true })
+  window.visualViewport?.addEventListener('resize', onResize, { passive: true })
 }
 
 // React binding: returns true while a resize/zoom gesture is in flight.
